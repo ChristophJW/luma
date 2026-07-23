@@ -14,6 +14,8 @@ import {
 // measured insets; each screen applies them to its own container, because
 // a wrapping SafeAreaView silently does nothing when a child manages its
 // own full-height layout.
+// Gesture handler needs a root view above everything that uses gestures.
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { glow, ink, paper, radius, space } from "@luma/tokens";
@@ -58,8 +60,9 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <I18nProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <I18nProvider>
         <View style={styles.screen}>
         <StatusBar style="dark" />
         {state.kind === "loading" ? (
@@ -72,8 +75,9 @@ export default function App() {
           <Home user={state.user} onSignedOut={() => setState({ kind: "signed-out" })} />
         )}
         </View>
-      </I18nProvider>
-    </SafeAreaProvider>
+        </I18nProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

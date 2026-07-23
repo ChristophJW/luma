@@ -8,6 +8,8 @@
  */
 
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as FileSystem from "expo-file-system/legacy";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,6 +22,7 @@ import { queue } from "./capture/queue";
 import { drain, onQueueChange, startDraining } from "./capture/uploader";
 import { useT } from "./i18n";
 import { Button, styles as ui } from "./ui";
+import { Zoomable } from "./Zoomable";
 
 export function CameraScreen({
   event,
@@ -47,6 +50,9 @@ export function CameraScreen({
   const [pending, setPending] = useState(0);
   const [flash, setFlash] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A capture waiting to be kept or thrown away. Nothing is queued and no
+  // shot is spent until it is kept.
+  const [preview, setPreview] = useState<string | null>(null);
 
   // Join our own event to obtain a camera session.
   useEffect(() => {
@@ -93,17 +99,36 @@ export function CameraScreen({
     });
     if (!photo?.uri) return;
 
+    // Hold it for review. The shot is not spent yet — a blurry frame a
+    // person immediately rejects should cost them nothing.
+    setPreview(photo.uri);
+  }, [token, remaining]);
+
+  /** Commit the held capture: this is where a shot is finally spent. */
+  const keep = useCallback(async () => {
+    if (!preview || !token) return;
+
     await queue.add({
       id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
-      uri: photo.uri,
+      uri: preview,
       eventId: event.id,
       createdAt: Date.now(),
       attempts: 0,
     });
 
+    setPreview(null);
     setTaken((count) => count + 1);
     void drain(token);
-  }, [token, remaining, event.id]);
+  }, [preview, token, event.id]);
+
+  /** Throw it away, and the file with it — the cache would fill up otherwise. */
+  const retake = useCallback(async () => {
+    const going = preview;
+    setPreview(null);
+    if (going) {
+      await FileSystem.deleteAsync(going, { idempotent: true }).catch(() => undefined);
+    }
+  }, [preview]);
 
   if (!permission) {
     return <Centre><ActivityIndicator color={paper[100]} /></Centre>;
@@ -130,6 +155,39 @@ export function CameraScreen({
           <Button label={t("wizard.cancel")} variant="quiet" onPress={onClose} />
         </View>
       </Centre>
+    );
+  }
+
+  if (preview) {
+    return (
+      <View style={styles.root}>
+        <Zoomable>
+          <Image source={preview} style={StyleSheet.absoluteFill} contentFit="contain" />
+        </Zoomable>
+
+        <View style={[styles.scrim, styles.scrimBottom]} pointerEvents="none" />
+
+        {/* Side by side rather than stacked full-width blocks: the actions sit
+            in one band at the bottom and the photograph stays visible, which
+            is the thing being judged. */}
+        <View style={[styles.previewActions, { bottom: insets.bottom + space[8] }]}>
+          <Pressable
+            onPress={() => void retake()}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.retakeButton, pressed && styles.actionPressed]}
+          >
+            <Text style={styles.retakeLabel}>{t("camera.retake")}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => void keep()}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.keepButton, pressed && styles.actionPressed]}
+          >
+            <Text style={styles.keepLabel}>{t("camera.keep")}</Text>
+          </Pressable>
+        </View>
+      </View>
     );
   }
 
@@ -294,4 +352,35 @@ const styles = StyleSheet.create({
   gridCell: { width: 7, height: 7, backgroundColor: paper[100], borderRadius: 1 },
 
   flash: { ...StyleSheet.absoluteFillObject, backgroundColor: paper[100], opacity: 0.15 },
+
+  previewActions: {
+    position: "absolute",
+    left: space[6],
+    right: space[6],
+    flexDirection: "row",
+    gap: space[3],
+  },
+  // Retake is a ghost over the photograph: available, never shouting.
+  retakeButton: {
+    flex: 1,
+    minHeight: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: "rgba(247,243,237,0.35)",
+    backgroundColor: "rgba(20,17,15,0.45)",
+  },
+  retakeLabel: { fontSize: 16, fontWeight: "500", color: paper[100] },
+  // Keep is solid, and slightly wider — most photographs are kept.
+  keepButton: {
+    flex: 1.3,
+    minHeight: 54,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    backgroundColor: paper[100],
+  },
+  keepLabel: { fontSize: 16, fontWeight: "600", color: ink[900] },
+  actionPressed: { opacity: 0.9 },
 });

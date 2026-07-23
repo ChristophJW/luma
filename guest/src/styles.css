@@ -636,3 +636,20 @@ body {
 }
 .close-glyph::before { transform: rotate(45deg); }
 .close-glyph::after { transform: rotate(-45deg); }
+
+/* --- Capture preview ----------------------------------------------------- */
+
+.preview-image {
+  object-fit: contain;
+  background: var(--luma-ink-900);
+}
+
+.preview-actions {
+  position: absolute;
+  left: var(--luma-space-6);
+  right: var(--luma-space-6);
+  bottom: max(var(--luma-space-8), env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--luma-space-2);
+}

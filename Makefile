@@ -9,7 +9,7 @@ endif
 
 .PHONY: help setup dev up down reset logs api guest host host-web worker \
         migrate makemigrations seed shell superuser test lint format check ps urls \
-        reset-db mail-test host-clear
+        reset-db mail-test host-clear android android-release devices
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -72,10 +72,30 @@ guest: ## Run the guest camera dev server
 host: ## Run the Expo host app (press w for web, i/a for simulators)
 	npm run dev --workspace host
 
-host-clear: ## Run the Expo host app with a cleared Metro cache
-	# Needed after installing a native module: a running Metro caches its file
-	# map, so a package added mid-session resolves as "file does not exist"
-	# even though it is on disk.
+android: ## Build and install a dev build on a USB-connected Android device
+	# Expo Go cannot load a project once it needs native modules it does not
+	# bundle. A development build is your own binary with exactly this
+	# project's native code, and it still connects to Metro for fast reload —
+	# so the workflow is unchanged, only the container differs.
+	#
+	# React Native 0.81 expects JDK 17; the machine default is 21, which
+	# Gradle rejects, so the version is pinned here rather than globally.
+	@adb devices | grep -qw device || (echo "No device. Plug it in, enable USB debugging, and accept the RSA prompt." && exit 1)
+	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android --device
+
+android-release: ## Build a release APK on a USB-connected device
+	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android --device --variant release
+
+devices: ## List attached Android devices
+	@adb devices -l
+
+host-clear: ## Run the Expo host app, wiping every Metro cache first
+	# `expo start --clear` alone leaves the transform cache under .expo and
+	# node_modules/.cache, which is why a freshly installed package can still
+	# resolve as "file does not exist" after a supposedly clean restart.
+	@pkill -f "expo start" 2>/dev/null || true
+	rm -rf host/.expo node_modules/.cache host/node_modules/.cache
+	@find /tmp -maxdepth 1 -name 'metro-*' -exec rm -rf {} + 2>/dev/null || true
 	cd host && npx expo start --clear
 
 host-web: ## Run the Expo host app directly in the browser

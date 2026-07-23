@@ -33,6 +33,9 @@ export function Camera({
   const stream = useRef<MediaStream | null>(null);
 
   const [facing, setFacing] = useState<Facing>("environment");
+  // A capture held for review. No shot is spent until it is kept, so a
+  // blurry frame somebody immediately rejects costs them nothing.
+  const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
   const [flash, setFlash] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -105,15 +108,48 @@ export function Camera({
     // Re-encoding through a canvas drops every EXIF tag, including GPS —
     // which is the stripping requirement, done before the bytes ever leave
     // the device rather than server-side afterwards.
+    setPreview({ blob, url: URL.createObjectURL(blob) });
+  }
+
+  async function keep() {
+    if (!preview) return;
     await queue.add({
       id: crypto.randomUUID(),
-      blob,
+      blob: preview.blob,
       createdAt: Date.now(),
       attempts: 0,
     });
 
+    URL.revokeObjectURL(preview.url);
+    setPreview(null);
     onCaptured();
     void drain(token);
+  }
+
+  function retake() {
+    if (!preview) return;
+    // Release the object URL, or every rejected frame leaks its bytes.
+    URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  }
+
+  if (preview) {
+    return (
+      <div class="viewfinder">
+        <img class="feed preview-image" src={preview.url} alt="" />
+        <div class="scrim scrim-bottom" />
+        <div class="preview-actions">
+          {/* Keeping is primary, but retake carries real weight — the point
+              of a preview is that saying no is easy. */}
+          <button class="button" onClick={keep}>
+            {t("camera.keep")}
+          </button>
+          <button class="button button-quiet" onClick={retake}>
+            {t("camera.retake")}
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

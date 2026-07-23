@@ -30,6 +30,7 @@ import { BackButton } from "./Icons";
 import { type Photo, capture } from "./capture/api";
 import { useT } from "./i18n";
 import { Button, styles as ui } from "./ui";
+import { Zoomable } from "./Zoomable";
 
 const COLUMNS = 3;
 const GUTTER = 2;
@@ -54,6 +55,9 @@ export function PhotosScreen({
 
   /** null = browsing. A Set (possibly empty) = selection mode. */
   const [selected, setSelected] = useState<Set<string> | null>(null);
+  // While a photograph is zoomed, edge taps must pan it rather than step
+  // to the next one.
+  const [zoomed, setZoomed] = useState(false);
 
   // Measured, not assumed. `Dimensions.get("window")` ignores safe-area
   // insets, split view and rotation, and a grid a few points wider than its
@@ -231,14 +235,16 @@ export function PhotosScreen({
       <Modal visible={current !== null} transparent={false} animationType="fade">
         {current ? (
           <View style={styles.lightbox}>
-            <Image
-              source={current.url}
-              style={styles.full}
-              contentFit="contain"
-              cachePolicy="memory-disk"
-              transition={240}
-              recyclingKey={current.id}
-            />
+            <Zoomable onZoomedChange={setZoomed}>
+              <Image
+                source={current.url}
+                style={styles.full}
+                contentFit="contain"
+                cachePolicy="memory-disk"
+                transition={240}
+                recyclingKey={current.id}
+              />
+            </Zoomable>
 
             <View style={[styles.lightboxTop, { top: insets.top + space[3] }]}>
               <Pressable
@@ -258,16 +264,22 @@ export function PhotosScreen({
 
             {/* Wide invisible targets down each edge: a thumb finds them
                 without looking, and they never cover the photograph. */}
-            {open! > 0 ? (
+            {!zoomed && open! > 0 ? (
               <Pressable
-                onPress={() => setOpen(open! - 1)}
+                onPress={() => {
+                  setZoomed(false);
+                  setOpen(open! - 1);
+                }}
                 accessibilityLabel={t("gallery.previous")}
                 style={[styles.step, styles.stepPrev]}
               />
             ) : null}
-            {open! < photos!.length - 1 ? (
+            {!zoomed && open! < photos!.length - 1 ? (
               <Pressable
-                onPress={() => setOpen(open! + 1)}
+                onPress={() => {
+                  setZoomed(false);
+                  setOpen(open! + 1);
+                }}
                 accessibilityLabel={t("gallery.next")}
                 style={[styles.step, styles.stepNext]}
               />

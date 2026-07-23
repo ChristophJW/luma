@@ -30,6 +30,8 @@ export const en = {
   "camera.lastShot": "1 shot left",
   "camera.flip": "Switch camera",
   "camera.shutter": "Take a photo",
+  "camera.keep": "Keep it",
+  "camera.retake": "Take it again",
   "camera.uploading": "{count} uploading",
   "camera.queued": "{count} photos waiting",
 
@@ -95,6 +97,8 @@ export const de: Translations<GuestDictionary> = {
   "camera.lastShot": "Noch 1 Aufnahme",
   "camera.flip": "Kamera wechseln",
   "camera.shutter": "Foto aufnehmen",
+  "camera.keep": "Behalten",
+  "camera.retake": "Nochmal",
   "camera.uploading": "{count} werden geladen",
   "camera.queued": "{count} Fotos warten",
 
