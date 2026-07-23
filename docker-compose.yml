@@ -19,7 +19,7 @@ services:
     ports:
       - "5442:5432"
     volumes:
-      - ./.data/postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-luma} -d ${POSTGRES_DB:-luma}"]
       interval: 5s
@@ -49,7 +49,7 @@ services:
       - "9010:9000"   # API
       - "9011:9011"   # console — http://127.0.0.1:9011
     volumes:
-      - ./.data/minio:/data
+      - minio-data:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -86,3 +86,13 @@ services:
       - "8035:8025"   # web UI
     environment:
       MP_MAX_MESSAGES: 500
+
+# Named volumes rather than bind mounts into ./.data.
+#
+# Postgres and MinIO write as root inside their containers. A bind mount put
+# root-owned directories inside the repo, which broke `make reset` and made
+# Metro's file watcher crash with EACCES while crawling the workspace.
+# Docker owns this data now; `docker compose down -v` removes it cleanly.
+volumes:
+  postgres-data:
+  minio-data:

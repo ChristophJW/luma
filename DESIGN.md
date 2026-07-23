@@ -327,7 +327,8 @@ Expo / React Native for Web across iOS, Android and browser. Design once, for to
 - **No hover-dependent interaction.** Anything revealed on hover must also be reachable by tap. This eliminates hover-only action menus on table rows.
 - **Comfortable density.** This is not a data tool. A host creates two events in their life.
 - **Light by default**, dark supported. People plan weddings on laptops in daylight.
-- **Event creation is a sequence, not a settings page.** Name and date, then look, then guests and shots, then the reveal, then privacy. One decision per screen on mobile; grouped on desktop.
+- **Event creation is a wizard, not a settings page.** Name and date, then look, then guests and shots, then the reveal, then privacy. **One decision per screen on every width** — a single centred column at phone width, with the header and the Continue button fixed and only the step's own content able to scroll. Widening it into a grouped desktop form turns the sequence back into exactly what it is trying not to be.
+- **A wizard step asks only what cannot be sensibly defaulted.** Capture mode and album visibility keep their recommended values and live in event settings afterwards. Anything you add to a step is something a host must decide before they can continue, so the bar is high.
 - **Destructive actions require typed confirmation**, not just a red button. Deleting an event destroys photographs that cannot be recovered.
 - **The live counter during an event** is the host's favourite screen. Guests joined, photos captured, updating live. Give it real design attention — it is what they will screenshot.
 - **Moderation** shows the photograph large, with removal one tap away and undo available for 30 seconds.
@@ -349,6 +350,19 @@ Covers `CONCEPT.md` §4. These screens are the only place in the product where a
 ### One entry point
 
 There is no "Log in / Sign up" tab pair, and no choice to get wrong. The visitor types an email address; the system decides whether this is a returning host or a new one and moves to the code screen either way. Design a **single field**, not a fork.
+
+### One account, and the URL picks the role
+
+There is one account type. The same person hosts their own wedding and attends a friend's, with one login. **Never design a "continue as host / continue as guest" screen** — the entry point decides:
+
+```text
+luma.de/join/LUMA01   →  guest, capturing
+luma.de/              →  host, my events
+```
+
+A signed-in person who scans a QR code joins in one tap with their name already filled — no sign-in, no retyping. A person with no account still captures anonymously; that path must not gain a login step (non-negotiable #1).
+
+The two paths are served by different bundles for load-time reasons (`CONCEPT.md`, Frontend), but that seam must be invisible: same colours, same type, same voice, same session. If a guest can tell they crossed into "a different app", the design has failed.
 
 ### Two screens, one field each
 
@@ -386,7 +400,7 @@ Each states what happened and what to do next, with a resend that actually resen
 
 A host configures an entire event and sees their theme preview before being asked for anything. The account is requested at save or at payment, and **everything configured survives it**. Design the sign-up as an interruption to be recovered from, not a front door — including a return path if they come back ten minutes later.
 
-### The attendee claim
+### The guest claim
 
 Shown after the reveal, never before. One tap on "Keep these memories", one code, done — no password step at any point.
 

@@ -99,7 +99,7 @@ Have a lawyer review these. This product processes photographs of identifiable p
 ## 4. Backend
 
 - [ ] Django apps scaffolded per `CONCEPT.md`
-- [ ] Data model migrated, including `AttendeeAccount`, `ParticipantClaim`, `FaceExclusion`
+- [ ] Data model migrated, including `ParticipantClaim`, `FaceExclusion`, and `Participant.user` (one account type — see `CONCEPT.md`, "One account, roles per event")
 - [ ] Django Ninja API with generated OpenAPI schema
 - [ ] Generated API client published for the three frontends
 
@@ -124,6 +124,7 @@ Have a lawyer review these. This product processes photographs of identifiable p
 - [ ] Orientation normalisation (the classic iPhone bug)
 - [ ] Thumbnail and display derivatives
 - [ ] Film theme rendering, matching the host preview exactly
+- [ ] Child-face blurring baked into the served derivative, never applied client-side — and verified that no unblurred face reaches a download or a ZIP export
 - [ ] File validation: real image, size limits, magic-byte check
 - [ ] ZIP export generation, streamed, resumable, expiring link
 - [ ] Retention and deletion jobs, actually deleting from object storage
@@ -136,7 +137,7 @@ Have a lawyer review these. This product processes photographs of identifiable p
 - [ ] Passkey (WebAuthn) registration and login, offered after the first successful sign-in
 - [ ] Optional password as a fallback, never required to create an account
 - [ ] Draft event survives sign-up — a host configures first, creates the account at save or payment, loses nothing
-- [ ] Attendee account creation, post-participation only
+- [ ] Guest claiming of a participation, post-participation only, onto the same account type a host uses
 - [ ] Participation claiming — idempotent, no duplicate claims
 - [ ] Verified-address match links an existing identity instead of creating a second one
 - [ ] "My events" across claimed participations
@@ -406,6 +407,55 @@ Do not launch without this.
 - [ ] Follow up with every paying host personally
 - [ ] Track storage cost per event against revenue per event
 - [ ] Decide, on evidence, whether face lookup is actually wanted before building it
+
+---
+
+## Considered and deferred
+
+A record of things that were asked for, examined, and consciously not built —
+so the same ground is not re-argued in six months. Each one says what would
+have to change for the answer to flip.
+
+### Snapchat-style AR face filters
+
+Real-time face tracking with dog ears, noses, tongues — the Snapchat lens
+effect. **Deferred, not rejected**, and never in the guest camera as designed.
+
+Three reasons, in order of how binding they are:
+
+1. **Bundle.** The guest camera is ~17 KB against a hard 30 KB budget.
+   MediaPipe's face-landmark runtime plus model is roughly 5–6 MB — about 200×
+   the entire budget, downloaded in a cellar with one bar of reception. That is
+   the exact scenario differentiator #3 exists for, so this is not a matter of
+   tuning.
+2. **Positioning.** `DESIGN.md` §3 says *not Instagram*, and the product sells
+   "a cohesive aesthetic… rather than looking like a random cloud-upload
+   folder". Dog ears are the incoherence the film treatment exists to prevent.
+3. **Effort.** 2–4 weeks for a rough version; Snapchat quality — tongue
+   physics, occlusion, multiple faces — is a licensed SDK (DeepAR, Banuba,
+   Snap Camera Kit), not something to rebuild. Licence fees, and +20–40 MB.
+
+There is also a smaller wrinkle: face tracking is face processing. On-device
+and storing nothing, so far less fraught than the lookup feature — but it
+complicates a pitch that says *we do not do surveillance*.
+
+**What would flip it:** hosts asking for it unprompted during validation
+(§0), or a competitor winning deals on it. In that case the shape is a
+licensed SDK in the **native host app only**, sold as a separate opt-in
+"photo booth" mode — never layered onto the disposable camera, so the guest
+bundle stays small and the album stays coherent.
+
+**Build this instead, and much sooner:**
+
+- [ ] Frames and borders — white film border, event date, couple's names, a
+      venue stamp. Canvas only, no detection, near-zero bytes, and it
+      *reinforces* the one-roll idea rather than fighting it
+- [ ] Draggable props a guest positions by finger — a moustache, a heart. No
+      face detection at all; a few KB
+- [ ] The film treatments already specced (Golden, Tungsten, Safelight)
+
+Roughly 80% of the playfulness for about 1% of the cost, on-brand, and inside
+the budget.
 
 ---
 

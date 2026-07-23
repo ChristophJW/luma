@@ -38,6 +38,10 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0")
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
 
+# Email is the identity — no username field. Set before the first migration;
+# changing it later requires a database rebuild.
+AUTH_USER_MODEL = "accounts.User"
+
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
@@ -53,7 +57,9 @@ INSTALLED_APPS = [
     # third party
     "corsheaders",
     # local
+    "apps.accounts",
     "apps.events",
+    "apps.notifications",
     "apps.participants",
     "apps.media",
 ]
@@ -133,11 +139,27 @@ S3_PRESIGN_EXPIRY_SECONDS = 15 * 60
 
 # --- Email ----------------------------------------------------------------
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# Pluggable, so local development stays on Mailpit while a deployment can use
+# a real provider without a code change. Deliverability to GMX and Web.de is a
+# launch blocker (CHECKLIST.md §9), so expect to A/B more than one.
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.getenv("EMAIL_HOST", "127.0.0.1")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "1035"))
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "hello@luma.local")
+
+# --- Azure Communication Services Email -----------------------------------
+# Only read when EMAIL_BACKEND points at the ACS backend. Provision the
+# resource in an EU data location — Azure is a US-jurisdiction sub-processor
+# and needs a DPA plus a privacy-policy entry (CHECKLIST.md §2).
+
+AZURE_ACS_CONNECTION_STRING = os.getenv("AZURE_ACS_CONNECTION_STRING", "")
+AZURE_ACS_ENDPOINT = os.getenv("AZURE_ACS_ENDPOINT", "")
+AZURE_ACS_ACCESS_KEY = os.getenv("AZURE_ACS_ACCESS_KEY", "")
+AZURE_ACS_SENDER = os.getenv("AZURE_ACS_SENDER", "")
+# Blocking on delivery confirmation adds seconds to a sign-in request. Leave
+# off unless you need the operation id.
+AZURE_ACS_WAIT_FOR_SEND = env_bool("AZURE_ACS_WAIT_FOR_SEND", False)
 
 # --- CORS -----------------------------------------------------------------
 
@@ -164,6 +186,11 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
+# --- Guest camera ---------------------------------------------------------
+# The base a join code is appended to, and what a QR code encodes. In
+# production this is the short join domain (CHECKLIST.md §4).
+GUEST_BASE_URL = os.getenv("GUEST_BASE_URL", "http://127.0.0.1:5173")
+
 # --- Feature flags --------------------------------------------------------
 
 FEATURE_FACE_LOOKUP = env_bool("FEATURE_FACE_LOOKUP", False)
@@ -182,5 +209,11 @@ LOGGING = {
     "formatters": {"simple": {"format": "{levelname} {name} {message}", "style": "{"}},
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["console"], "level": "INFO"},
-    "loggers": {"django.db.backends": {"level": "WARNING"}},
+    "loggers": {
+        "django.db.backends": {"level": "WARNING"},
+        # The Azure SDK logs entire HTTP request/response exchanges at INFO.
+        # Noisy, and it puts recipient metadata into the logs.
+        "azure": {"level": "WARNING"},
+        "azure.core.pipeline.policies.http_logging_policy": {"level": "WARNING"},
+    },
 }

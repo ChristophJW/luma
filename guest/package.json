@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Luma guest camera — deliberately tiny, web only",
+  "description": "Luma guest camera \u2014 deliberately tiny, web only",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
@@ -12,6 +12,7 @@
     "size": "npm run build && node ../scripts/check-bundle-size.mjs"
   },
   "dependencies": {
+    "@luma/i18n": "*",
     "@luma/tokens": "*",
     "preact": "^10.25.4"
   },

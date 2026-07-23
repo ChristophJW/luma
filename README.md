@@ -38,12 +38,27 @@ make worker     # Celery
 
 `./scripts/dev.sh` takes a subset too: `./scripts/dev.sh api guest`.
 
-Seed a development event:
+Seed the test account and sample events:
 
 ```bash
-cd api && uv run python manage.py seed_dev
-# → http://127.0.0.1:5173/?code=LUMA01
+make seed
 ```
+
+Creates one account with two roles, which is the point — hosting and attending
+are the same account (`CONCEPT.md`, "One account, roles per event"):
+
+| | Event | Code | |
+| --- | --- | --- | --- |
+| hosts | Anna & Ben | `LUMA01` | capture open |
+| attends | Mira & Jonas | `LUMA02` | revealed, 12 photos |
+
+```
+email     host@example.com
+password  luma-dev        ← only for /admin; sign-in is passwordless
+```
+
+To sign in, enter the email and read the 6-digit code in **Mailpit**
+(http://127.0.0.1:8035). `seed` refuses to run with `DEBUG=False`.
 
 ## Local URLs
 
@@ -120,6 +135,37 @@ npm run size --workspace guest
 ```
 
 Currently **7.9 KB**. This is the reason the guest app is Preact rather than React Native for Web — see `DESIGN.md` non-negotiable #3.
+
+## One product, one account, two bundles
+
+To the person using it there is a single app on a single domain. The entry path decides the role — nobody ever picks one:
+
+```
+luma.de/join/LUMA01   →  guest camera bundle    8 KB gzipped
+luma.de/*             →  host app bundle       97 KB gzipped and growing
+```
+
+There is **one account type**. The same `User` hosts their own wedding and attends a friend's; the role lives on the event via `Participant.user`, which is nullable because an account is never required to capture. In production this is one routing rule at the edge; in dev the two servers run on different ports.
+
+The split exists because the React Native Web runtime alone is ~97 KB gzipped before any feature exists — measured, not estimated — against 7.9 KB for the entire guest camera. Code-splitting can't remove it; it's the framework, not the features.
+
+## Email
+
+Local development uses **Mailpit** (http://127.0.0.1:8035) and nothing leaves the machine.
+
+For real delivery, `EMAIL_BACKEND` is env-selectable. An Azure Communication Services adapter ships in `apps/notifications/backends/azure_acs.py`:
+
+```bash
+uv sync --extra azure    # the SDK is an optional dependency
+```
+
+```
+EMAIL_BACKEND=apps.notifications.backends.azure_acs.AzureCommunicationEmailBackend
+AZURE_ACS_CONNECTION_STRING=...   # or AZURE_ACS_ENDPOINT + AZURE_ACS_ACCESS_KEY
+AZURE_ACS_SENDER=noreply@luma.de  # must be verified on a provisioned domain
+```
+
+Provision the ACS resource in an **EU data location**. Azure is a US-jurisdiction sub-processor, so it needs a DPA and an entry in the privacy policy (`CHECKLIST.md` §2), and deliverability to GMX and Web.de has to be measured before launch (§9).
 
 ## Notes
 

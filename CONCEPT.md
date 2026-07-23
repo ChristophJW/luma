@@ -59,7 +59,7 @@ Scan QR
 
 No password. No app-store detour. No complicated upload screen.
 
-#### Optional attendee account
+#### Claiming a participation
 
 Anonymous participation stays the default, but a guest should be able to *claim* their participation afterwards and keep it.
 
@@ -118,6 +118,7 @@ The host creates an event with:
 * guest download permissions
 * face lookup, off by default
 * whether the event involves minors, which disables face lookup outright
+* whether children's faces are blurred — a separate protective measure, on by default once minors are declared
 
 Once describes a similar host-controlled model: event hosts determine visibility, participant limits and reveal time. ([once.film][2])
 
@@ -166,12 +167,29 @@ The system recognises three escalating levels of identity and never forces a jum
 | ----------------------- | ------------------------------ | ------------------------------ | --------------------------------- |
 | Anonymous session       | signed cookie + local storage  | same browser, same device      | capture, shot counting            |
 | Contactable participant | + verified email or phone      | device loss, within one event  | reveal notification               |
-| Attendee account        | + one-time code, passkey or password | indefinitely, across events | “My events”, cross-event history  |
+| Account                 | + one-time code, passkey or password | indefinitely, across events | “My events”, cross-event history  |
+
+### One account, roles per event
+
+There is **one account type**, not a host account and a guest account. Somebody who runs their own wedding in June and attends a friend's in August is one person with one login, and the product must never make them prove it twice.
+
+A role belongs to the *event*, never to the person:
+
+```text
+Christoph (one account)
+├── host        of "Anna & Ben"
+├── participant in "Mira & Jonas"
+└── participant in "Firmenfeier 2027"
+```
+
+**The entry point decides the role, and the person never chooses it.** Scanning an event QR code makes you a participant in that event — there is no "join as host or guest?" screen, exactly as there is no "log in or register?" tab. Opening the app without a join code puts you in your own events.
 
 Implementation notes:
 
-* `Participant` remains the per-event record; the account is a separate identity that *owns* participants
-* linking must be idempotent — the same address claiming twice must not duplicate participations
+* `Participant` is the per-event record; it carries an optional link to an account
+* **an account is never required to participate.** A guest with no account captures anonymously and can claim afterwards — the rule from the previous section is unchanged
+* a signed-in person scanning a QR code joins in one tap, with their name already known and nothing retyped
+* claiming must be idempotent — the same address claiming twice must not duplicate participations
 * one account may own several participants in the same event only if they were captured on different devices; offer a merge rather than silently combining
 * never merge participants automatically on a matching display name
 * an unclaimed participant with a verified email should receive a claim link alongside the reveal notification
@@ -179,7 +197,7 @@ Implementation notes:
 
 ## 4. Account creation in the web app
 
-Every account this product has — host and attendee — is created **in the browser**, and creating one must be genuinely easy: under a minute, one-handed, on a phone, on venue wifi. There is never an app-store detour to sign up, and the native host apps are a convenience, never a requirement.
+Every account is created **in the browser**, and creating one must be genuinely easy: under a minute, one-handed, on a phone, on venue wifi. There is never an app-store detour to sign up, and the native host apps are a convenience, never a requirement.
 
 The bar: *if someone abandons sign-up, that is a bug in the flow, not a lack of motivation.*
 
@@ -194,7 +212,7 @@ The bar: *if someone abandons sign-up, that is a bug in the flow, not a lack of 
 * **Social sign-in is a shortcut, not the path.** If Google/Apple sign-in ships, it stays optional: it is a third-party request on a privacy-first product and it puts the customer relationship in someone else's hands
 * An unfinished sign-up is recoverable — the same link or code works if they come back ten minutes later
 
-### Attendee sign-up
+### Guest sign-up (claiming)
 
 The rule from the previous section stands: the account is created **after** participation, never as a precondition for it. The mechanics are the same as the host's, only shorter.
 
@@ -362,6 +380,36 @@ Notes:
 * set the threshold conservatively and always let the guest reject matches — a false positive here is a privacy incident, not a UX papercut
 * if the host marks an event as involving minors, disable the feature entirely
 
+### Blurring children's faces
+
+A distinct feature from lookup, and the two must not be confused — they have
+opposite purposes and therefore different rules.
+
+| | Face lookup | Blurring children |
+| --- | --- | --- |
+| Purpose | find the photographs a person appears in | remove a child from what anyone sees |
+| Processing | detect, embed, **match against a stored reference** | detect, estimate whether it is a child, destroy |
+| Stored | a 512-d template, until the match completes | nothing |
+| Who may trigger it | only the subject, by explicit consent | the host, for the whole event |
+| At an event with minors | **forbidden** | **on by default** |
+
+One finds people; the other hides them. Art. 25 — data protection by design —
+actively favours the second, and in Germany blurring is a recognised way to
+handle the § 22 KUG problem of photographing other people's children.
+
+Rules:
+
+* the blur is applied to the derivative that is served, so an unblurred face
+  is never delivered to a viewer, a download or an export
+* it is on by default the moment a host declares that children will be
+  photographed; turning it off is a deliberate act
+* no template is stored and no child is identified — an age estimate is made
+  and immediately discarded with the detection
+* it still infers from a face, so it needs its own section in the DPIA and its
+  own plain-language line in the privacy policy
+* a false negative is the dangerous failure, so the threshold leans towards
+  blurring, and the host gets a moderation view to blur anything missed
+
 ### Legal prerequisites
 
 * a DPIA before the feature ships; this is Art. 35 territory
@@ -459,7 +507,25 @@ Next.js (static, SEO)   Expo / React Native      Preact + Vite
 
 ## Frontend
 
-The two frontends have opposite requirements, so they are built differently on purpose.
+**One product, one domain, one account — two bundles.**
+
+To the person using it there is a single app. They scan a code or open the site; they never choose a role, never pick between apps, never hold two logins. Underneath, the entry path decides which bundle is served:
+
+```text
+luma.de/join/LUMA01   →  guest camera bundle    ~8 KB gzipped
+luma.de/*             →  host app bundle       ~97 KB gzipped and growing
+```
+
+The split is not a product decision, it is a physics one. The React Native Web runtime alone is roughly 97 KB gzipped before a single feature exists — measured, not estimated — against 7.9 KB for the whole guest camera. Code-splitting cannot remove it, because it is the framework rather than the features. Shipping one bundle would put a ~40× download in front of a guest standing in a cellar with one bar of reception, which is the exact situation differentiator #3 exists for.
+
+So the seam is at the edge, not in the experience:
+
+* one domain, one set of cookies, one session token
+* one account, with the role decided by the URL (see “One account, roles per event”)
+* one design-token package, so both bundles render identically
+* one generated API client from the same OpenAPI schema
+
+If the guest camera is ever rebuilt in Expo, it must be because a measurement said it was safe — not because one codebase felt tidier.
 
 ### Host — Expo (React Native + React Native for Web)
 
@@ -473,7 +539,7 @@ The host application is ordinary CRUD: create an event, configure it, watch a co
 * `expo-notifications` for reveal and moderation alerts
 * EAS Build and EAS Update for release and over-the-air fixes
 
-The attendee account lives here too — “My events” is the same screen on all three targets.
+“My events” lives here too — every event the account has hosted or attended, the same screen on all three targets.
 
 ### Guest — Preact + Vite, web only
 
@@ -508,7 +574,7 @@ Suggested Django applications:
 
 ```text
 accounts          host and staff users
-attendees         guest accounts, participation claiming, “My events”
+                  (no separate app — there is one account type, see accounts)
 organizations
 events
 participants
@@ -580,10 +646,12 @@ Keep this queue isolated. It is the only CPU-heavy work in the system, and a bac
 # Initial data model
 
 ```text
-User
+User                             one account type — host and guest alike
 - id
-- email
-- password_hash / external_auth_id
+- email                          the identity; there is no username
+- display_name
+- password_hash                  optional; sign-in is a code or a passkey
+- email_verified_at
 - created_at
 
 Organization
@@ -614,9 +682,11 @@ Event
 - involves_minors              (forces face_lookup_enabled false)
 - retention_expires_at
 
-Participant
+Participant                      one person's role in one event
 - id
 - event_id
+- user_id                        null while anonymous; set on claim or on a
+                                 signed-in join. Never required to capture.
 - display_name
 - email
 - phone
@@ -709,19 +779,10 @@ ConsentRecord
 - accepted_at
 - ip_hash
 
-AttendeeAccount
-- id
-- email
-- phone
-- password_hash / passkey_credential_id
-- display_name
-- created_at
-- last_login_at
-
 ParticipantClaim
 - id
 - participant_id
-- attendee_account_id
+- user_id                      (the same User as a host — one account type)
 - claim_method                 (email_code | sms_code | passkey | session)
 - claimed_at
   unique (participant_id)
@@ -806,7 +867,7 @@ For a European product, I would improve on Once by offering:
 * content export and deletion self-service
 * separate commercial-content consent
 * face lookup off by default, subject-initiated only, self-hosted in the EU, with reference biometrics destroyed on completion
-* an attendee account that lets a guest see and delete their own history across every event they attended
+* one account that lets a person see and delete their own history across every event they hosted or attended
 
 Once discloses Supabase, RevenueCat, PostHog and Vercel as vendors, and says data may be processed in the United States and other countries. ([once.film][3])
 
@@ -938,7 +999,7 @@ Prove the risky parts first:
 * email notifications
 * moderation
 * GDPR workflows
-* attendee accounts, participation claiming and “My events”
+* participation claiming and “My events”, on the same account as hosting
 * native host apps via EAS, since the codebase already produces them
 
 ## Phase 3: Premium product

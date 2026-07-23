@@ -23,7 +23,7 @@ build/
 .expo/
 *.tsbuildinfo
 
-# docker volumes / local data
+# docker volumes / local data (now named volumes — kept for older checkouts)
 .data/
 
 # editors

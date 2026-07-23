@@ -9,7 +9,9 @@ from django.conf import settings
 from django.db import connection
 from ninja import NinjaAPI, Schema
 
+from apps.accounts.api import router as auth_router
 from apps.events.api import router as events_router
+from apps.participants.api import router as guest_router
 
 api = NinjaAPI(
     title="Luma API",
@@ -44,4 +46,6 @@ def health(request) -> HealthOut:
     )
 
 
+api.add_router("/auth", auth_router)
 api.add_router("/events", events_router)
+api.add_router("/guest", guest_router)

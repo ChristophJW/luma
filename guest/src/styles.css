@@ -31,54 +31,93 @@ body {
 }
 
 /* Screen ----------------------------------------------------------------- */
+/*
+ * One structure for every non-camera screen: content breathing in the middle,
+ * the primary action pinned in the thumb zone. Before this each screen was a
+ * centred stack with identical gaps, which gave nothing a hierarchy and put
+ * the button wherever the text happened to end.
+ */
 
 .screen {
-  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* dvh, so mobile browser chrome appearing does not crop the footer. */
+  min-height: 100dvh;
+  padding: max(var(--luma-space-6), env(safe-area-inset-top)) var(--luma-space-6)
+    max(var(--luma-space-6), env(safe-area-inset-bottom));
+}
+
+.screen-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: var(--luma-space-6);
-  /* Never let content sit under the notch or the home indicator. */
-  padding-top: max(var(--luma-space-6), env(safe-area-inset-top));
-  padding-bottom: max(var(--luma-space-6), env(safe-area-inset-bottom));
   gap: var(--luma-space-4);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* Hero moments are centred; anything a person has to read or fill in is left
+   aligned, because centred body text is harder to scan. */
+.screen-body.is-centred {
+  text-align: center;
+  align-items: center;
+}
+
+.screen-footer {
+  width: 100%;
+  max-width: 420px;
+  margin: var(--luma-space-6) auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--luma-space-2);
 }
 
 .eyebrow {
   font-size: 13px;
   line-height: 16px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--luma-ink-500);
 }
 
-.event-title {
+.display {
   font-family: var(--luma-font-display);
-  font-size: 32px;
-  line-height: 38px;
+  font-size: 34px;
+  line-height: 40px;
   font-weight: 400;
+  color: var(--luma-paper-100);
+  text-wrap: balance;
 }
 
 /* Nothing below 15px anywhere in the guest flow. DESIGN.md §5. */
 .body {
-  font-size: 18px;
-  line-height: 26px;
+  font-size: 17px;
+  line-height: 25px;
   color: var(--luma-paper-100);
-  max-width: 34ch;
 }
 
 .muted {
   color: var(--luma-ink-500);
 }
 
-/* The counter — the product's signature typographic element ---------------- */
+/* The shot allowance on the cover — the promise of the whole product, so it
+   is set as a designed object rather than a number in a paragraph. */
+.allowance {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--luma-space-1);
+  padding: var(--luma-space-6) var(--luma-space-8);
+  border: 1px solid var(--luma-ink-700);
+  border-radius: var(--luma-radius-card);
+}
 
 .counter {
-  font-size: 40px;
-  line-height: 40px;
+  font-size: 56px;
+  line-height: 56px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--luma-glow-400);
@@ -87,12 +126,12 @@ body {
 }
 
 .counter-label {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 16px;
   font-weight: 500;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--luma-paper-100);
+  color: var(--luma-ink-500);
 }
 
 /* Low state: colour AND weight AND text change together. Never colour alone. */
@@ -104,48 +143,496 @@ body {
 /* Controls ---------------------------------------------------------------- */
 
 .button {
-  min-height: var(--luma-tap-target-min);
-  min-width: var(--luma-tap-target-min);
+  width: 100%;
+  min-height: 54px;
   padding: var(--luma-space-3) var(--luma-space-6);
   border: 0;
   border-radius: var(--luma-radius-pill);
   background: var(--luma-paper-100);
   color: var(--luma-ink-900);
   font-family: inherit;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 500;
   cursor: pointer;
   transition: transform var(--luma-motion-micro) var(--luma-ease-out);
 }
 
 .button:active {
-  transform: scale(0.97);
+  transform: scale(0.985);
 }
 
-.button--quiet {
+.button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* --- Viewfinder — DESIGN.md §7 ------------------------------------------ */
+
+.viewfinder {
+  position: fixed;
+  inset: 0;
+  background: var(--luma-ink-900);
+  overflow: hidden;
+}
+
+/* Full bleed. Chrome floats over it; no letterboxing, no framed preview. */
+.feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Mandatory. A lens pointed at a white tablecloth erases unprotected text. */
+.scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--luma-scrim-height);
+  pointer-events: none;
+}
+.scrim-top {
+  top: 0;
+  background: var(--luma-scrim-top);
+}
+.scrim-bottom {
+  bottom: 0;
+  background: var(--luma-scrim-bottom);
+}
+
+.hud-top {
+  position: absolute;
+  top: max(var(--luma-space-4), env(safe-area-inset-top));
+  left: var(--luma-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.counter-total {
+  font-size: 22px;
+  color: var(--luma-paper-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.queued {
+  position: absolute;
+  top: max(var(--luma-space-4), env(safe-area-inset-top));
+  right: var(--luma-space-6);
+  padding: var(--luma-space-1) var(--luma-space-3);
+  border-radius: var(--luma-radius-pill);
+  background: rgb(20 17 15 / 55%);
+  color: var(--luma-paper-100);
+  font-size: 13px;
+}
+
+/* Everything interactive lives in the bottom quarter. */
+.hud-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: max(var(--luma-space-8), env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 var(--luma-space-6);
+}
+
+.shutter {
+  width: var(--luma-shutter-size);
+  height: var(--luma-shutter-size);
+  border-radius: var(--luma-radius-pill);
+  background: var(--luma-paper-100);
+  border: 3px solid rgb(20 17 15 / 20%);
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--luma-motion-shutter) linear;
+}
+.shutter:active {
+  transform: scale(0.9);
+}
+.shutter:disabled {
+  opacity: 0.4;
+}
+
+.chrome-button {
+  width: var(--luma-tap-target-min);
+  height: var(--luma-tap-target-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--luma-radius-pill);
+  background: rgb(20 17 15 / 45%);
+  cursor: pointer;
+}
+.chrome-spacer {
+  background: transparent;
+  pointer-events: none;
+}
+
+.flip-glyph {
+  width: 18px;
+  height: 14px;
+  border: 1.5px solid var(--luma-paper-100);
+  border-radius: 3px;
+}
+
+/* One frame of light, so a capture is unmistakable in a dark room. */
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--luma-paper-100);
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* --- Join --------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--luma-space-2);
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  min-height: 54px;
+  padding: var(--luma-space-3) var(--luma-space-4);
+  border: 1px solid var(--luma-ink-700);
+  border-radius: var(--luma-radius-control);
+  background: var(--luma-ink-800);
+  color: var(--luma-paper-100);
+  font: inherit;
+  font-size: 17px;
+}
+
+.input::placeholder {
+  color: var(--luma-ink-600);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--luma-ink-500);
+}
+
+/* The whole row is the target, not just the box — this gets tapped in the
+   dark by somebody holding a drink. */
+.consent {
+  display: flex;
+  gap: var(--luma-space-3);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--luma-space-4);
+  border: 1px solid var(--luma-ink-700);
+  border-radius: var(--luma-radius-control);
+  background: var(--luma-ink-800);
+  cursor: pointer;
+}
+
+.consent input {
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  accent-color: var(--luma-glow-500);
+  flex: none;
+}
+
+.consent .body {
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--luma-paper-100);
+}
+
+/* --- Gallery — DESIGN.md §8 --------------------------------------------- */
+
+.gallery {
+  position: fixed;
+  inset: 0;
+  background: var(--luma-ink-900);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(var(--luma-space-12), env(safe-area-inset-bottom));
+}
+
+.gallery-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--luma-space-3);
+  padding: max(var(--luma-space-4), env(safe-area-inset-top)) var(--luma-space-5)
+    var(--luma-space-4);
+  background: linear-gradient(
+    to bottom,
+    var(--luma-ink-900) 65%,
+    rgb(20 17 15 / 0%)
+  );
+}
+
+.gallery-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gallery-title .eyebrow {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The display face — Georgia stands in for Fraunces, which is not worth a
+   font download inside the camera bundle. DESIGN.md §5. */
+.gallery-heading {
+  font-family: var(--luma-font-display);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 400;
+  color: var(--luma-paper-100);
+}
+
+.gallery-count {
+  font-size: 22px;
+  color: var(--luma-glow-400);
+  font-variant-numeric: tabular-nums;
+}
+
+.gallery-empty {
+  padding: var(--luma-space-16) var(--luma-space-6);
+  text-align: center;
+}
+
+/* Edge to edge, radius 0, 2px gutters. The wall of images is the point. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: var(--luma-ink-800);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  /* Photographs resolve out of the dark rather than popping in. */
+  opacity: 0;
+  transition: opacity var(--luma-motion-considered) var(--luma-ease-out);
+}
+.tile img.is-loaded {
+  opacity: 1;
+}
+
+.tile:active {
+  opacity: 0.9;
+}
+
+/* A static block. No shimmer — that reads as urgency, and this is not urgent. */
+.tile-skeleton {
+  background: var(--luma-ink-800);
+  cursor: default;
+}
+
+/* --- Lightbox ----------------------------------------------------------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: var(--luma-ink-900);
+  display: grid;
+  place-items: center;
+  animation: lightbox-in var(--luma-motion-transition) var(--luma-ease-out);
+}
+
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.lightbox-top {
+  position: absolute;
+  top: max(var(--luma-space-4), env(safe-area-inset-top));
+  left: var(--luma-space-5);
+  right: var(--luma-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--luma-space-3);
+  z-index: 2;
+}
+
+.lightbox-position {
+  font-size: 15px;
+  color: var(--luma-paper-100);
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox-bottom {
+  position: absolute;
+  left: var(--luma-space-6);
+  right: var(--luma-space-6);
+  bottom: max(var(--luma-space-8), env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  z-index: 2;
+}
+
+.step {
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  width: 24%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 1;
+}
+.step-prev { left: 0; }
+.step-next { right: 0; }
+
+/* A quiet control over a photograph: readable, but never the loudest thing
+   on screen. The photograph is. */
+.ghost-button {
+  min-height: var(--luma-tap-target-min);
+  padding: var(--luma-space-3) var(--luma-space-6);
+  border: 1px solid rgb(247 243 237 / 25%);
+  border-radius: var(--luma-radius-pill);
+  background: rgb(20 17 15 / 45%);
+  color: var(--luma-paper-100);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.ghost-button:active {
+  opacity: 0.9;
+}
+
+/* --- Confirmation sheet ------------------------------------------------- */
+
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgb(20 17 15 / 65%);
+  display: flex;
+  align-items: flex-end;
+  animation: fade-in var(--luma-motion-transition) var(--luma-ease-out);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+
+.sheet {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--luma-space-3);
+  padding: var(--luma-space-6);
+  padding-bottom: max(var(--luma-space-6), env(safe-area-inset-bottom));
+  border-radius: var(--luma-radius-card) var(--luma-radius-card) 0 0;
+  background: var(--luma-ink-800);
+  animation: sheet-in var(--luma-motion-transition) var(--luma-ease-out);
+}
+
+@keyframes sheet-in {
+  from { transform: translateY(12px); }
+}
+
+.sheet-title {
+  font-family: var(--luma-font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 400;
+  color: var(--luma-paper-100);
+}
+
+.button-quiet {
   background: transparent;
   color: var(--luma-paper-100);
   border: 1px solid var(--luma-ink-700);
 }
-
-/* Status pill — dev only, removed before launch -------------------------- */
-
-.status {
-  position: fixed;
-  top: max(var(--luma-space-2), env(safe-area-inset-top));
-  right: var(--luma-space-2);
-  padding: var(--luma-space-1) var(--luma-space-3);
-  border-radius: var(--luma-radius-pill);
-  background: var(--luma-ink-800);
-  color: var(--luma-ink-500);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
+.button-danger {
+  background: var(--luma-safelight);
+  color: var(--luma-paper-100);
 }
 
-.status.is-ok {
-  color: var(--luma-glow-400);
+/* An alternate path, not a disabled one. DESIGN.md §6. */
+@media (prefers-reduced-motion: reduce) {
+  .lightbox,
+  .sheet-scrim,
+  .sheet {
+    animation: none;
+  }
+  .tile img {
+    transition: none;
+  }
 }
 
-.status.is-down {
-  color: var(--luma-safelight);
+/* --- Chrome glyphs ------------------------------------------------------ */
+
+.grid-glyph {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  width: 16px;
+  height: 16px;
 }
+.grid-glyph i {
+  background: var(--luma-paper-100);
+  border-radius: 1px;
+}
+
+.back-glyph {
+  width: 12px;
+  height: 12px;
+  margin-left: 3px;
+  border-left: 1.5px solid var(--luma-paper-100);
+  border-bottom: 1.5px solid var(--luma-paper-100);
+  transform: rotate(45deg);
+}
+
+.close-glyph {
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+.close-glyph::before,
+.close-glyph::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: var(--luma-paper-100);
+}
+.close-glyph::before { transform: rotate(45deg); }
+.close-glyph::after { transform: rotate(-45deg); }

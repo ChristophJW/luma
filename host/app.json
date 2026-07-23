@@ -25,6 +25,19 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-localization",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Luma uses the camera so you can photograph your own event.",
+          "recordAudioAndroid": false
+        }
+      ]
+    ]
   }
 }

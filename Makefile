@@ -8,7 +8,8 @@ export
 endif
 
 .PHONY: help setup dev up down reset logs api guest host host-web worker \
-        migrate makemigrations shell superuser test lint format check ps urls
+        migrate makemigrations seed shell superuser test lint format check ps urls \
+        reset-db mail-test host-clear
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -35,12 +36,23 @@ up: ## Start infrastructure (postgres, redis, minio, mailpit)
 down: ## Stop infrastructure
 	docker compose down
 
-reset: ## Destroy all local data and start clean
+reset-db: ## Drop and recreate the database, then migrate and seed
+	@docker compose up -d >/dev/null
+	@until docker compose exec -T postgres pg_isready -U $${POSTGRES_USER:-luma} >/dev/null 2>&1; do sleep 1; done
+	docker compose exec -T postgres psql -U $${POSTGRES_USER:-luma} -d postgres \
+		-c "DROP DATABASE IF EXISTS $${POSTGRES_DB:-luma} WITH (FORCE);" \
+		-c "CREATE DATABASE $${POSTGRES_DB:-luma} OWNER $${POSTGRES_USER:-luma};"
+	@$(MAKE) migrate
+	@$(MAKE) seed
+
+reset: ## Destroy ALL local data (db, storage, mail) and start clean
+	# Named volumes, so -v removes everything and nothing root-owned is left
+	# lying around inside the repo.
 	docker compose down -v
-	rm -rf .data
 	@$(MAKE) up
 	@until docker compose exec -T postgres pg_isready -U $${POSTGRES_USER:-luma} >/dev/null 2>&1; do sleep 1; done
 	@$(MAKE) migrate
+	@$(MAKE) seed
 
 ps: ## Show infrastructure status
 	docker compose ps
@@ -60,11 +72,24 @@ guest: ## Run the guest camera dev server
 host: ## Run the Expo host app (press w for web, i/a for simulators)
 	npm run dev --workspace host
 
+host-clear: ## Run the Expo host app with a cleared Metro cache
+	# Needed after installing a native module: a running Metro caches its file
+	# map, so a package added mid-session resolves as "file does not exist"
+	# even though it is on disk.
+	cd host && npx expo start --clear
+
 host-web: ## Run the Expo host app directly in the browser
 	npm run web --workspace host
 
 migrate: ## Apply database migrations
 	cd api && uv run python manage.py migrate
+
+mail-test: ## Send a test email through the configured backend (EMAIL=you@domain.de)
+	@test -n "$(EMAIL)" || (echo "usage: make mail-test EMAIL=you@domain.de" && exit 1)
+	@cd api && uv run --extra azure python manage.py send_test_email --to $(EMAIL)
+
+seed: ## Create the test account and sample events (DEBUG only)
+	@cd api && uv run python manage.py seed_dev
 
 makemigrations: ## Generate migrations
 	cd api && uv run python manage.py makemigrations
