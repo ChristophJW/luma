@@ -1,0 +1,80 @@
+/* Luma design tokens — see DESIGN.md §4–6.
+ *
+ * Every neutral leans warm. There is no blue-black and no cool grey in this
+ * system; that single decision carries most of the brand.
+ *
+ * Contrast ratios in the comments are computed, not estimated. Re-verify if
+ * you change any value.
+ */
+
+:root {
+  /* --- Ink: warm dark scale ------------------------------------------- */
+  --luma-ink-900: #14110f; /* camera background, deepest surface */
+  --luma-ink-800: #1e1a17; /* raised surface on dark */
+  --luma-ink-700: #2b2521; /* borders on dark, inactive chrome */
+  --luma-ink-600: #3d352f; /* disabled text on dark */
+  --luma-ink-500: #5a4f47; /* secondary text on dark */
+
+  /* --- Paper: warm light scale ---------------------------------------- */
+  --luma-paper-000: #fffdfa; /* host app background */
+  --luma-paper-100: #f7f3ed; /* primary text on dark — 17.0:1 on ink-900 */
+  --luma-paper-200: #ede7de; /* borders on light */
+  --luma-paper-300: #ddd4c8; /* dividers, skeleton fill (static, never shimmer) */
+
+  /* --- Glow: the accent ------------------------------------------------ */
+  --luma-glow-400: #f2b45c; /* on dark — 10.3:1 on ink-900. The counter colour. */
+  --luma-glow-500: #e09538; /* fills and icons only */
+  --luma-glow-600: #c47621; /* on light — 3.5:1, LARGE TEXT AND UI ONLY */
+  --luma-glow-700: #8a4e12; /* accent text on light — 6.5:1 on paper-000 */
+
+  /* --- Safelight: record and destroy ----------------------------------- */
+  /* 3.7:1 on ink-900 — large text and non-text UI only, never body copy. */
+  --luma-safelight: #c2413a;
+
+  /* --- Spacing: 4px base ----------------------------------------------- */
+  --luma-space-1: 4px;
+  --luma-space-2: 8px;
+  --luma-space-3: 12px;
+  --luma-space-4: 16px;
+  --luma-space-6: 24px;
+  --luma-space-8: 32px;
+  --luma-space-12: 48px;
+  --luma-space-16: 64px;
+  --luma-space-24: 96px;
+
+  /* --- Radius ---------------------------------------------------------- */
+  --luma-radius-control: 8px;
+  --luma-radius-card: 12px;
+  --luma-radius-photo: 4px; /* 0 in the album grid — the photo's edge is the frame */
+  --luma-radius-pill: 999px;
+
+  /* --- Type ------------------------------------------------------------ */
+  --luma-font-display: "Fraunces", Georgia, serif;
+  --luma-font-ui:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* --- Motion: camera mechanisms are damped. Nothing bounces. ---------- */
+  --luma-motion-micro: 120ms;
+  --luma-motion-transition: 240ms;
+  --luma-motion-considered: 400ms;
+  --luma-motion-shutter: 80ms;
+  --luma-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --luma-ease-in-out: cubic-bezier(0.65, 0.05, 0.36, 1);
+
+  /* --- Camera chrome ---------------------------------------------------- */
+  /* Scrims are mandatory. Text never sits directly on live video — a
+   * viewfinder pointed at a white tablecloth erases unprotected white text. */
+  --luma-scrim-height: 96px;
+  --luma-scrim-top: linear-gradient(to bottom, rgb(20 17 15 / 70%), transparent);
+  --luma-scrim-bottom: linear-gradient(to top, rgb(20 17 15 / 70%), transparent);
+  --luma-shutter-size: 80px;
+  --luma-tap-target-min: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --luma-motion-micro: 1ms;
+    --luma-motion-transition: 1ms;
+    --luma-motion-considered: 1ms;
+  }
+}

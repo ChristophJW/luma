@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover so the viewfinder reaches the notch and the shutter
+         can respect the home indicator. DESIGN.md §7. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#14110F" />
+    <meta name="color-scheme" content="dark" />
+    <!-- The capture page is private and must never be indexed. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Luma</title>
+    <!-- No font CDN, no analytics, no third-party script. Non-negotiable #3. -->
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

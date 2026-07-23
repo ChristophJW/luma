@@ -1,0 +1,42 @@
+[project]
+name = "luma-api"
+version = "0.1.0"
+description = "Luma API — Django + Django Ninja"
+# Pinned to 3.12 rather than ">=3.12". The inference worker will need
+# onnxruntime for face lookup (CONCEPT.md §7), and that wheel is historically
+# slow to publish for brand-new Python releases. Cheaper to pin now.
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.1,<6",
+    "django-ninja>=1.3",
+    "django-cors-headers>=4.6",
+    "psycopg[binary]>=3.2",
+    "dj-database-url>=2.3",
+    "python-dotenv>=1.0",
+    "celery[redis]>=5.4",
+    "redis>=5.2",
+    "boto3>=1.35",
+    "pillow>=11.0",
+    # pgvector is installed now so the face-lookup migration path exists later.
+    # Nothing uses it yet — the feature is off by default (CONCEPT.md §7).
+    "pgvector>=0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["test_*.py", "*_test.py"]

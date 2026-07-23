@@ -1,0 +1,77 @@
+#cloud-config
+# Bootstrap only. This runs once, at first boot, and gets the machine to the
+# point where a deploy can happen. Application configuration lives in the
+# deploy step, not here — cloud-init changes require a rebuild.
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - ufw
+  - fail2ban
+  - unattended-upgrades
+  - postgresql-client
+
+users:
+  - name: luma
+    groups: [sudo, docker]
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys: []
+
+write_files:
+  # Hetzner's cloud firewall is the primary control; ufw is defence in depth
+  # in case a container publishes a port it shouldn't.
+  - path: /etc/ssh/sshd_config.d/99-luma.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      X11Forwarding no
+
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  # --- Docker ---------------------------------------------------------------
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - systemctl enable --now docker
+  - usermod -aG docker luma
+
+  # --- Data volume ----------------------------------------------------------
+  # Postgres lives here so the server can be rebuilt without data loss.
+  - mkdir -p /mnt/data
+  - |
+    if ! blkid ${volume_device}; then
+      mkfs.ext4 -F ${volume_device}
+    fi
+  - echo "${volume_device} /mnt/data ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+  - mount -a
+  - mkdir -p /mnt/data/postgres /mnt/data/redis /mnt/data/backups
+  - chown -R luma:luma /mnt/data
+
+  # --- Application directory ------------------------------------------------
+  - mkdir -p /srv/luma
+  - chown -R luma:luma /srv/luma
+
+  # --- Firewall -------------------------------------------------------------
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  - systemctl enable --now fail2ban
+  - systemctl restart ssh
+
+final_message: "luma bootstrap complete after $UPTIME seconds"

@@ -1,0 +1,151 @@
+@import "@luma/tokens/css";
+
+/* Reset ------------------------------------------------------------------ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  /* The camera screen is dark. Always. A light viewfinder destroys night
+     vision and blows out the preview. DESIGN.md §4. */
+  background: var(--luma-ink-900);
+  color: var(--luma-paper-100);
+  font-family: var(--luma-font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Stop iOS Safari from bouncing the viewfinder. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Screen ----------------------------------------------------------------- */
+
+.screen {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: var(--luma-space-6);
+  /* Never let content sit under the notch or the home indicator. */
+  padding-top: max(var(--luma-space-6), env(safe-area-inset-top));
+  padding-bottom: max(var(--luma-space-6), env(safe-area-inset-bottom));
+  gap: var(--luma-space-4);
+}
+
+.eyebrow {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--luma-ink-500);
+}
+
+.event-title {
+  font-family: var(--luma-font-display);
+  font-size: 32px;
+  line-height: 38px;
+  font-weight: 400;
+}
+
+/* Nothing below 15px anywhere in the guest flow. DESIGN.md §5. */
+.body {
+  font-size: 18px;
+  line-height: 26px;
+  color: var(--luma-paper-100);
+  max-width: 34ch;
+}
+
+.muted {
+  color: var(--luma-ink-500);
+}
+
+/* The counter — the product's signature typographic element ---------------- */
+
+.counter {
+  font-size: 40px;
+  line-height: 40px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--luma-glow-400);
+  /* Tabular, always. A counter that reflows as it counts looks broken. */
+  font-variant-numeric: tabular-nums;
+}
+
+.counter-label {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--luma-paper-100);
+}
+
+/* Low state: colour AND weight AND text change together. Never colour alone. */
+.counter.is-low {
+  color: var(--luma-safelight);
+  font-weight: 700;
+}
+
+/* Controls ---------------------------------------------------------------- */
+
+.button {
+  min-height: var(--luma-tap-target-min);
+  min-width: var(--luma-tap-target-min);
+  padding: var(--luma-space-3) var(--luma-space-6);
+  border: 0;
+  border-radius: var(--luma-radius-pill);
+  background: var(--luma-paper-100);
+  color: var(--luma-ink-900);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform var(--luma-motion-micro) var(--luma-ease-out);
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+.button--quiet {
+  background: transparent;
+  color: var(--luma-paper-100);
+  border: 1px solid var(--luma-ink-700);
+}
+
+/* Status pill — dev only, removed before launch -------------------------- */
+
+.status {
+  position: fixed;
+  top: max(var(--luma-space-2), env(safe-area-inset-top));
+  right: var(--luma-space-2);
+  padding: var(--luma-space-1) var(--luma-space-3);
+  border-radius: var(--luma-radius-pill);
+  background: var(--luma-ink-800);
+  color: var(--luma-ink-500);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.status.is-ok {
+  color: var(--luma-glow-400);
+}
+
+.status.is-down {
+  color: var(--luma-safelight);
+}

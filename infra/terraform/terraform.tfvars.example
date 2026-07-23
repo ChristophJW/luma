@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+# Hetzner Cloud → Project → Security → API tokens (read/write)
+hcloud_token = "…"
+
+environment = "prod"
+
+# German locations only — nbg1 (Nuremberg) or fsn1 (Falkenstein).
+# Enforced by a validation rule; hel1/ash/hil/sin will be rejected.
+location = "nbg1"
+
+# cx32 = 4 vCPU / 8 GB / 80 GB. Enough for Django + Celery + Postgres + Redis
+# through the pilot and early events.
+server_type = "cx32"
+
+ssh_public_key = "ssh-ed25519 AAAA… you@host"
+
+# Lock SSH to your own address. Leaving this open is how a box gets owned,
+# and this one holds other people's wedding photographs.
+# admin_ipv4_cidrs = ["203.0.113.4/32"]
+
+# Hetzner Object Storage → Credentials. Terraform cannot create these.
+s3_endpoint   = "https://nbg1.your-objectstorage.com"
+s3_access_key = "…"
+s3_secret_key = "…"
+
+# Origins allowed to upload directly to storage. Must include the real guest
+# camera origin or every upload fails CORS.
+guest_origins = ["https://luma.de", "https://app.luma.de"]

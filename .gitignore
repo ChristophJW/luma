@@ -1,0 +1,50 @@
+# env
+.env
+.env.local
+*.local
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+*.sqlite3
+
+# node
+node_modules/
+dist/
+build/
+.next/
+.expo/
+*.tsbuildinfo
+
+# docker volumes / local data
+.data/
+
+# editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# media uploaded during local dev
+api/media/
+api/staticfiles/
+
+# terraform
+# .terraform.lock.hcl is deliberately NOT ignored — commit it so provider
+# versions are reproducible across machines and CI.
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+
+# expo
+.expo/
+expo-env.d.ts

@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Luma",
+    "slug": "luma",
+    "scheme": "luma",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "de.luma.host"
+    },
+    "android": {
+      "package": "de.luma.host",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFDFA",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

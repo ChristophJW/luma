@@ -1,0 +1,12 @@
+{
+  "name": "@luma/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Design tokens shared by the guest camera, host app and marketing site",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./src/tokens.css"
+  }
+}

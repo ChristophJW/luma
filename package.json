@@ -1,0 +1,23 @@
+{
+  "name": "luma",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Luma — private camera experience for weddings and events",
+  "workspaces": [
+    "guest",
+    "host",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "dev:api": "cd api && uv run python manage.py runserver 0.0.0.0:8000",
+    "dev:guest": "npm run dev --workspace guest",
+    "dev:host": "npm run dev --workspace host",
+    "dev:host:web": "npm run web --workspace host",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
