@@ -49,12 +49,30 @@ EXTENSION_BY_MIME = {
 }
 
 
-class JoinError(Exception):
-    """Refusal to let somebody join, with a guest-facing reason."""
+class RefusedError(Exception):
+    """A refusal the client should explain in the reader's own language.
+
+    Carries a stable `code` as well as English prose. The prose is a fallback
+    for logs and for clients that do not know the code yet; the code is what
+    a client translates. Sending only prose meant a German screen showing an
+    English sentence, which is what shipping server strings to a UI always
+    ends up looking like.
+    """
+
+    code = "error"
+
+    def __init__(self, message: str, code: str | None = None):
+        super().__init__(message)
+        if code:
+            self.code = code
 
 
-class CaptureError(Exception):
-    """Refusal to spend a shot, with a guest-facing reason."""
+class JoinError(RefusedError):
+    """Refusal to let somebody join."""
+
+
+class CaptureError(RefusedError):
+    """Refusal to spend a shot."""
 
 
 @dataclass
@@ -106,11 +124,11 @@ def join_event(
     participant there like anybody else.
     """
     if not event.is_capture_open:
-        raise JoinError("This event isn't open for photos right now.")
+        raise JoinError("This event isn't open for photos right now.", "event_closed")
 
     name = display_name.strip()
     if not name:
-        raise JoinError("Please enter a name.")
+        raise JoinError("Please enter a name.", "name_required")
 
     existing = None
     if user is not None:
@@ -125,7 +143,7 @@ def join_event(
 
     # Capacity is what the host paid for, so it is counted at the door.
     if event.participants.count() >= event.guest_capacity:
-        raise JoinError("This event is full. Ask your host to make room.")
+        raise JoinError("This event is full. Ask your host to make room.", "event_full")
 
     participant = Participant.objects.create(
         event=event,
@@ -190,7 +208,7 @@ def reserve_shot(participant: Participant, *, content_type: str) -> Reservation:
     never obtain more upload URLs than it has shots.
     """
     if content_type not in ALLOWED_MIME_TYPES:
-        raise CaptureError("That file type isn't supported.")
+        raise CaptureError("That file type isn't supported.", "unsupported_type")
 
     # Lock the counter for the whole decision.
     locked = Participant.objects.select_for_update().get(pk=participant.pk)
@@ -198,10 +216,10 @@ def reserve_shot(participant: Participant, *, content_type: str) -> Reservation:
 
     event = locked.event
     if not event.is_capture_open:
-        raise CaptureError("This event isn't open for photos right now.")
+        raise CaptureError("This event isn't open for photos right now.", "event_closed")
 
     if locked.shots_remaining <= 0:
-        raise CaptureError("That's the roll.")
+        raise CaptureError("That's the roll.", "no_shots")
 
     locked.shots_reserved += 1
     locked.save(update_fields=["shots_reserved"])
@@ -242,13 +260,16 @@ def confirm_upload(
         MediaAsset.objects.select_for_update().filter(id=media_id, participant=participant).first()
     )
     if media is None:
-        raise CaptureError("We couldn't find that photo.")
+        raise CaptureError("We couldn't find that photo.", "photo_not_found")
 
     if media.processing_status != ProcessingStatus.RESERVED:
         # Already confirmed, or expired and released. Either way, saying so
         # again must not move the counter.
         if media.processing_status == ProcessingStatus.EXPIRED:
-            raise CaptureError("That upload took too long. Take the photo again.")
+            raise CaptureError(
+                "That upload took too long. Take the photo again.",
+                "reservation_expired",
+            )
         return media
 
     locked = Participant.objects.select_for_update().get(pk=participant.pk)

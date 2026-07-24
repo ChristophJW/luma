@@ -55,6 +55,8 @@ export class ApiError extends Error {
     message: string,
     readonly status: number,
     readonly retryAfter?: number,
+    /** Stable identifier for a refusal, so the client picks the wording. */
+    readonly code?: string,
   ) {
     super(message);
   }

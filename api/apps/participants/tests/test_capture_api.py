@@ -257,3 +257,51 @@ def test_photo_urls_are_stable_across_requests(client, event):
     second = client.get("/api/guest/photos", headers=camera(token)).json()
 
     assert first[0]["url"] == second[0]["url"]
+
+
+@pytest.mark.django_db
+def test_refusals_carry_a_stable_code_for_the_client_to_translate(client, event):
+    """The client owns the wording. Sending only English prose put an English
+    sentence under a German heading."""
+    event.capture_ends_at = timezone.now() - timedelta(minutes=1)
+    event.save()
+
+    response = join(client)
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "event_closed",
+        "detail": "This event isn't open for photos right now.",
+    }
+
+
+@pytest.mark.django_db
+def test_a_full_event_is_a_different_code(client, event):
+    event.guest_capacity = 1
+    event.save()
+    join(client, name="First")
+
+    response = join(client, name="Second")
+    assert response.status_code == 409
+    assert response.json()["code"] == "event_full"
+
+
+@pytest.mark.django_db
+def test_running_out_of_shots_has_its_own_code(client, event):
+    token = join(client).json()["token"]
+    for _ in range(2):
+        client.post(
+            "/api/guest/shots/reserve",
+            {"content_type": "image/jpeg"},
+            content_type="application/json",
+            headers=camera(token),
+        )
+
+    response = client.post(
+        "/api/guest/shots/reserve",
+        {"content_type": "image/jpeg"},
+        content_type="application/json",
+        headers=camera(token),
+    )
+    assert response.status_code == 409
+    assert response.json()["code"] == "no_shots"

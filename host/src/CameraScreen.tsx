@@ -11,12 +11,12 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import * as FileSystem from "expo-file-system/legacy";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { glow, ink, paper, radius, safelight, space } from "@luma/tokens";
 
-import { type LumaEvent } from "./api";
+import { ApiError, type LumaEvent } from "./api";
 import { type CameraParticipant, capture } from "./capture/api";
 import { queue } from "./capture/queue";
 import { drain, onQueueChange, startDraining } from "./capture/uploader";
@@ -54,19 +54,58 @@ export function CameraScreen({
   // shot is spent until it is kept.
   const [preview, setPreview] = useState<string | null>(null);
 
-  // Join our own event to obtain a camera session.
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await capture.join(event.join_code, accountToken, displayName || "Host");
-        setToken(result.token);
-        setParticipant(result.participant);
-        setTaken(result.participant.shots_committed);
-      } catch {
-        setError(t("camera.joinFailed"));
-      }
-    })();
+  // Join our own event to obtain a camera session. Extracted rather than
+  // inlined in the effect so the error screen can run it again — a failed
+  // join is usually a dropped connection, which retrying fixes.
+  const [joining, setJoining] = useState(false);
+
+  const join = useCallback(async () => {
+    setJoining(true);
+    setError(null);
+    try {
+      const result = await capture.join(event.join_code, accountToken, displayName || "Host");
+      setToken(result.token);
+      setParticipant(result.participant);
+      setTaken(result.participant.shots_committed);
+    } catch (caught) {
+      // The server names the reason with a stable code; the wording comes
+      // from here, in the reader's language. Showing the server's English
+      // prose put an English sentence under a German heading.
+      const code = caught instanceof ApiError ? caught.code : undefined;
+      setError(
+        code
+          ? t(`refused.${code}` as "refused.event_closed")
+          : t("camera.joinFailed"),
+      );
+    } finally {
+      setJoining(false);
+    }
   }, [event.join_code, accountToken, displayName]);
+
+  useEffect(() => {
+    void join();
+  }, [join]);
+
+  /**
+   * One recovery path for the error screen.
+   *
+   * "Try again" has to fix whatever is actually broken, and from that screen
+   * the person cannot tell whether the camera permission or the connection
+   * was the problem. So it asks for permission when that is missing, then
+   * retries the join — rather than retrying only one of the two and appearing
+   * to do nothing.
+   */
+  const retry = useCallback(async () => {
+    if (permission && !permission.granted) {
+      if (permission.canAskAgain === false) {
+        await Linking.openSettings();
+        return;
+      }
+      const asked = await requestPermission();
+      if (!asked.granted) return;
+    }
+    await join();
+  }, [permission, requestPermission, join]);
 
   useEffect(() => {
     if (!token) return;
@@ -131,30 +170,68 @@ export function CameraScreen({
   }, [preview]);
 
   if (!permission) {
-    return <Centre><ActivityIndicator color={paper[100]} /></Centre>;
+    return (
+      <View style={[styles.messageRoot, styles.loadingCentre]}>
+        <ActivityIndicator color={paper[100]} />
+      </View>
+    );
   }
 
   if (!permission.granted) {
+    // Once Android has been told "don't ask again", requestPermission()
+    // resolves denied without showing anything — so the button would look
+    // broken. The only route left is the system settings screen.
+    const blocked = permission.canAskAgain === false;
+
     return (
-      <Centre>
-        <Text style={[ui.display, styles.onDark]}>{t("camera.permissionHeading")}</Text>
-        <Text style={styles.body}>{t("camera.permissionBody")}</Text>
-        <View style={styles.permissionActions}>
-          <Button label={t("camera.allow")} onPress={() => void requestPermission()} />
-          <Button label={t("wizard.cancel")} variant="quiet" onPress={onClose} />
-        </View>
-      </Centre>
+      <Message
+        insets={insets}
+        title={t(blocked ? "camera.permissionBlockedHeading" : "camera.permissionHeading")}
+        body={t(blocked ? "camera.permissionBlockedBody" : "camera.permissionBody")}
+        actions={
+          <>
+            <Button
+              label={t(blocked ? "camera.openSettings" : "camera.allow")}
+              tone="dark"
+              onPress={() =>
+                blocked ? void Linking.openSettings() : void requestPermission()
+              }
+            />
+            <Button
+              label={t("wizard.cancel")}
+              variant="quiet"
+              tone="dark"
+              onPress={onClose}
+            />
+          </>
+        }
+      />
     );
   }
 
   if (error) {
     return (
-      <Centre>
-        <Text style={styles.body}>{error}</Text>
-        <View style={styles.permissionActions}>
-          <Button label={t("wizard.cancel")} variant="quiet" onPress={onClose} />
-        </View>
-      </Centre>
+      <Message
+        insets={insets}
+        title={t("camera.joinFailedTitle")}
+        body={error}
+        actions={
+          <>
+            <Button
+              label={t("camera.tryAgain")}
+              tone="dark"
+              disabled={joining}
+              onPress={() => void retry()}
+            />
+            <Button
+              label={t("wizard.cancel")}
+              variant="quiet"
+              tone="dark"
+              onPress={onClose}
+            />
+          </>
+        }
+      />
     );
   }
 
@@ -263,22 +340,70 @@ export function CameraScreen({
   );
 }
 
-function Centre({ children }: { children: React.ReactNode }) {
-  return <View style={styles.centre}>{children}</View>;
+/**
+ * A full-screen message on the dark camera surface.
+ *
+ * Same structure as every other screen: content breathing in the middle, the
+ * actions pinned in the thumb zone rather than floating under the text.
+ */
+function Message({
+  insets,
+  title,
+  body,
+  actions,
+}: {
+  insets: { top: number; bottom: number };
+  title: string;
+  body: string;
+  actions: React.ReactNode;
+}) {
+  return (
+    <View style={styles.messageRoot}>
+      <View
+        style={[
+          styles.messageBody,
+          { paddingTop: insets.top + space[6], paddingBottom: space[6] },
+        ]}
+      >
+        <Text style={styles.messageTitle}>{title}</Text>
+        <Text style={styles.messageText}>{body}</Text>
+      </View>
+      <View style={[styles.messageActions, { paddingBottom: insets.bottom + space[6] }]}>
+        {actions}
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: ink[900] },
-  centre: {
+  messageRoot: { flex: 1, backgroundColor: ink[900] },
+  loadingCentre: { alignItems: "center", justifyContent: "center" },
+  messageBody: {
     flex: 1,
     justifyContent: "center",
-    gap: space[4],
-    padding: space[6],
-    backgroundColor: ink[900],
+    gap: space[3],
+    paddingHorizontal: space[6],
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
   },
-  onDark: { color: paper[100] },
-  body: { fontSize: 17, lineHeight: 25, color: ink[500] },
-  permissionActions: { gap: space[2], marginTop: space[4] },
+  messageTitle: {
+    fontFamily: ui.display.fontFamily,
+    fontSize: 30,
+    lineHeight: 38,
+    color: paper[100],
+  },
+  // ink-500 on ink-900 is too faint to read comfortably at body size; the
+  // paper scale is what this surface is meant to use.
+  messageText: { fontSize: 17, lineHeight: 25, color: paper[300] },
+  messageActions: {
+    gap: space[2],
+    paddingHorizontal: space[6],
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
 
   scrim: { position: "absolute", left: 0, right: 0, height: 110 },
   scrimTop: { top: 0, backgroundColor: "rgba(20,17,15,0.55)" },

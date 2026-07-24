@@ -3,13 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "main": "index.ts",
-  "description": "Luma host app \u2014 Expo, one codebase for iOS, Android and web",
+  "description": "Luma host app — Expo, one codebase for iOS, Android and web",
   "scripts": {
     "start": "expo start",
     "dev": "expo start",
     "web": "expo start --web",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

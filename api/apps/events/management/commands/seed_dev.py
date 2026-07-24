@@ -110,11 +110,15 @@ class Command(BaseCommand):
         )
 
         # An anonymous guest, to prove participation needs no account.
+        #
+        # Matched on a fixed session id, not the display name: real guests
+        # created by testing share names, and get_or_create then explodes with
+        # MultipleObjectsReturned.
         Participant.objects.get_or_create(
             event=own_event,
-            display_name="Tante Erika",
+            anonymous_session_id="seed-anonymous-guest",
             defaults={
-                "anonymous_session_id": uuid.uuid4().hex,
+                "display_name": "Tante Erika",
                 "shot_limit": own_event.shots_per_guest,
                 "shots_committed": 3,
             },

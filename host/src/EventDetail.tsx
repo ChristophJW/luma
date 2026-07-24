@@ -160,7 +160,23 @@ export function EventDetail({
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Button label={t("detail.takePhotos")} onPress={takePhotos} />
+        {/* Offering the camera for an event that cannot accept photos sends
+            a host into a dead end and makes a closed window look like a
+            broken camera. Say which it is, here, before they tap. */}
+        {event.is_capture_open ? (
+          <Button label={t("detail.takePhotos")} onPress={takePhotos} />
+        ) : (
+          <>
+            <Button label={t("detail.takePhotos")} onPress={takePhotos} disabled />
+            <Text style={styles.hint}>
+              {t(
+                event.capture_ends_at && new Date(event.capture_ends_at) < new Date()
+                  ? "detail.captureClosed"
+                  : "detail.captureNotYet",
+              )}
+            </Text>
+          </>
+        )}
 
         <View style={styles.actions}>
           <Action icon={<QrIcon />} label={t("events.qr")} onPress={onShowQr} />

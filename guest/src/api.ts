@@ -53,6 +53,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Stable identifier for a refusal, so the client picks the wording. */
+    readonly code?: string,
   ) {
     super(message);
   }
@@ -72,13 +74,15 @@ async function call<T>(path: string, init: RequestInit & { token?: string } = {}
 
   if (!response.ok) {
     let detail = "";
+    let code: string | undefined;
     try {
       const data = await response.json();
       if (typeof data?.detail === "string") detail = data.detail;
+      if (typeof data?.code === "string") code = data.code;
     } catch {
       /* not JSON */
     }
-    throw new ApiError(detail, response.status);
+    throw new ApiError(detail, response.status, code);
   }
 
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);

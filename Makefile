@@ -80,11 +80,27 @@ android: ## Build and install a dev build on a USB-connected Android device
 	#
 	# React Native 0.81 expects JDK 17; the machine default is 21, which
 	# Gradle rejects, so the version is pinned here rather than globally.
+	@if adb devices | grep -q unauthorized; then \
+		echo "Device attached but UNAUTHORIZED."; \
+		echo "Unlock the phone and tap 'Allow' on the 'Allow USB debugging?' prompt."; \
+		echo "If no prompt appears: Developer options -> Revoke USB debugging authorisations, then replug."; \
+		exit 1; \
+	fi
 	@adb devices | grep -qw device || (echo "No device. Plug it in, enable USB debugging, and accept the RSA prompt." && exit 1)
-	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android --device
+	# Gradle's build cache derives entries from node_modules, which npm
+	# rewrites underneath it — that makes packing an entry fail mid-build
+	# even though compilation succeeded. gradle.properties is regenerated
+	# by prebuild, so the setting is reapplied here rather than once.
+	@test -f host/android/gradle.properties && \
+		(grep -q 'org.gradle.caching=false' host/android/gradle.properties || \
+		 echo 'org.gradle.caching=false' >> host/android/gradle.properties) || true
+	# No --device flag: with one phone attached Expo picks it. Passing the
+	# flag bare opens an interactive picker, and passing the adb serial is
+	# rejected — Expo matches on device name, not serial.
+	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android
 
 android-release: ## Build a release APK on a USB-connected device
-	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android --device --variant release
+	cd host && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 npx expo run:android --variant release
 
 devices: ## List attached Android devices
 	@adb devices -l

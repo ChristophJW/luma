@@ -48,3 +48,7 @@ crash.log
 # expo
 .expo/
 expo-env.d.ts
+
+# expo prebuild output — generated from app.json, never edited by hand
+host/android/
+host/ios/

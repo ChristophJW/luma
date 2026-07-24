@@ -149,14 +149,17 @@ export function App() {
         setScreen({ kind: "permission", participant: result.participant });
       } catch (error) {
         const status = error instanceof ApiError ? error.status : 0;
+        // 409 covers several refusals — full, closed, not started. The server
+        // names which with a stable code; the wording comes from here so it
+        // is in the guest's language.
+        const code = error instanceof ApiError ? error.code : undefined;
         setScreen({
           kind: "error",
-          message:
-            status === 409
-              ? t("error.full")
-              : status === 0
-                ? t("error.offline")
-                : t("error.generic"),
+          message: code
+            ? t(`refused.${code}` as "refused.event_closed")
+            : status === 0
+              ? t("error.offline")
+              : t("error.generic"),
         });
       } finally {
         setBusy(false);

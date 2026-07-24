@@ -71,6 +71,13 @@ export const en = {
 
   "error.offline": "Couldn't reach Luma. Your photos are safe and will upload automatically.",
   "error.notFound": "This event isn't here. The code may have changed — ask your host for a fresh QR code.",
+  "refused.event_closed": "This event isn't open for photos right now.",
+  "refused.event_full": "This event is full. Ask your host to make room.",
+  "refused.no_shots": "That's the roll — every shot is used.",
+  "refused.reservation_expired": "That upload took too long. Take the photo again.",
+  "refused.unsupported_type": "That file type isn't supported.",
+  "refused.photo_not_found": "We couldn't find that photo.",
+  "refused.name_required": "Please enter a name.",
   "error.full": "This event is full. Ask your host to make room.",
   "error.generic": "Something went wrong. Try again.",
 } as const;
@@ -138,6 +145,13 @@ export const de: Translations<GuestDictionary> = {
 
   "error.offline": "Wir erreichen Luma nicht. Deine Fotos sind sicher und werden automatisch hochgeladen.",
   "error.notFound": "Dieses Event gibt es hier nicht. Vielleicht hat sich der Code geändert — frag deine Gastgeber nach einem neuen QR-Code.",
+  "refused.event_closed": "Dieses Event ist gerade nicht für Fotos geöffnet.",
+  "refused.event_full": "Dieses Event ist voll. Bitte deine Gastgeber, Platz zu schaffen.",
+  "refused.no_shots": "Das war der Film — alle Aufnahmen sind verbraucht.",
+  "refused.reservation_expired": "Das Hochladen hat zu lange gedauert. Mach das Foto noch einmal.",
+  "refused.unsupported_type": "Dieser Dateityp wird nicht unterstützt.",
+  "refused.photo_not_found": "Dieses Foto konnten wir nicht finden.",
+  "refused.name_required": "Bitte gib einen Namen ein.",
   "error.full": "Dieses Event ist voll. Bitte deine Gastgeber, Platz zu schaffen.",
   "error.generic": "Da ist etwas schiefgelaufen. Versuch es noch einmal.",
 };

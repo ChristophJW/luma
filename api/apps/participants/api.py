@@ -9,7 +9,6 @@ from datetime import datetime
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema, Status
-from ninja.errors import HttpError
 from ninja.security import HttpBearer
 from pydantic import Field
 
@@ -29,6 +28,13 @@ from .services import (
 )
 
 router = Router()
+
+
+class RefusalOut(Schema):
+    """A refusal the client localises itself, using `code`."""
+
+    code: str
+    detail: str
 
 
 class CameraAuth(HttpBearer):
@@ -97,7 +103,12 @@ class JoinOut(Schema):
     participant: ParticipantOut
 
 
-@router.post("/join/{join_code}", response={201: JoinOut}, tags=["guest"], auth=None)
+@router.post(
+    "/join/{join_code}",
+    response={201: JoinOut, 409: RefusalOut},
+    tags=["guest"],
+    auth=None,
+)
 def join(request, join_code: str, payload: JoinIn):
     """Join an event and receive a camera session.
 
@@ -122,7 +133,7 @@ def join(request, join_code: str, payload: JoinIn):
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
     except JoinError as refusal:
-        raise HttpError(409, str(refusal)) from refusal
+        return 409, RefusalOut(code=refusal.code, detail=str(refusal))
 
     return Status(
         201,
@@ -150,7 +161,12 @@ class ReserveOut(Schema):
     expires_in: int
 
 
-@router.post("/shots/reserve", response={201: ReserveOut}, tags=["guest"], auth=camera_auth)
+@router.post(
+    "/shots/reserve",
+    response={201: ReserveOut, 409: RefusalOut},
+    tags=["guest"],
+    auth=camera_auth,
+)
 def reserve(request, payload: ReserveIn):
     """Claim a shot and get a URL to upload it to.
 
@@ -162,7 +178,7 @@ def reserve(request, payload: ReserveIn):
     try:
         reservation = reserve_shot(request.auth, content_type=payload.content_type)
     except CaptureError as refusal:
-        raise HttpError(409, str(refusal)) from refusal
+        return 409, RefusalOut(code=refusal.code, detail=str(refusal))
 
     return Status(
         201,
@@ -188,7 +204,12 @@ class ConfirmOut(Schema):
     shots_remaining: int
 
 
-@router.post("/shots/{media_id}/confirm", response=ConfirmOut, tags=["guest"], auth=camera_auth)
+@router.post(
+    "/shots/{media_id}/confirm",
+    response={200: ConfirmOut, 409: RefusalOut},
+    tags=["guest"],
+    auth=camera_auth,
+)
 def confirm(request, media_id: str, payload: ConfirmIn):
     """Tell the server the upload landed. Safe to call twice."""
     try:
@@ -200,7 +221,7 @@ def confirm(request, media_id: str, payload: ConfirmIn):
             captured_at=payload.captured_at,
         )
     except CaptureError as refusal:
-        raise HttpError(409, str(refusal)) from refusal
+        return 409, RefusalOut(code=refusal.code, detail=str(refusal))
 
     participant = request.auth
     participant.refresh_from_db()

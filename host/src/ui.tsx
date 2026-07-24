@@ -61,29 +61,44 @@ export function Button({
   onPress,
   disabled,
   variant = "primary",
+  tone = "light",
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
   variant?: "primary" | "quiet" | "danger";
+  /**
+   * `dark` for the ink-900 surfaces — the camera and the gallery.
+   *
+   * Without it the light styles invert into nothing: a primary button is
+   * ink-900 on an ink-900 background, and a quiet button's ink-900 label is
+   * unreadable dark-on-dark.
+   */
+  tone?: "light" | "dark";
 }) {
+  const dark = tone === "dark";
+
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
       style={({ pressed }) => [
         styles.button,
-        variant === "quiet" && styles.buttonQuiet,
+        dark && styles.buttonOnDark,
+        variant === "quiet" && (dark ? styles.buttonQuietOnDark : styles.buttonQuiet),
         variant === "danger" && styles.buttonDanger,
-        disabled && styles.buttonDisabled,
+        disabled && (dark ? styles.buttonDisabledOnDark : styles.buttonDisabled),
         pressed && styles.buttonPressed,
       ]}
     >
       <Text
         style={[
           styles.buttonLabel,
-          variant === "quiet" && styles.buttonLabelQuiet,
+          dark && styles.buttonLabelOnDark,
+          variant === "quiet" && (dark ? styles.buttonLabelQuietOnDark : styles.buttonLabelQuiet),
+          variant === "danger" && styles.buttonLabelDanger,
         ]}
       >
         {label}
@@ -246,6 +261,18 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: paper[300],
   },
+  // On dark, the fill and the label swap: paper on ink, not ink on ink.
+  buttonOnDark: {
+    backgroundColor: paper[100],
+  },
+  buttonQuietOnDark: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(247, 243, 237, 0.35)",
+  },
+  buttonDisabledOnDark: {
+    backgroundColor: ink[700],
+  },
   buttonDanger: {
     backgroundColor: safelight,
   },
@@ -259,6 +286,15 @@ export const styles = StyleSheet.create({
     color: paper["000"],
     fontSize: 16,
     fontWeight: "500",
+  },
+  buttonLabelOnDark: {
+    color: ink[900],
+  },
+  buttonLabelQuietOnDark: {
+    color: paper[100],
+  },
+  buttonLabelDanger: {
+    color: paper["000"],
   },
   buttonLabelQuiet: {
     color: ink[900],

@@ -46,13 +46,15 @@ async function call<T>(path: string, init: RequestInit & { token?: string } = {}
 
   if (!response.ok) {
     let detail = "";
+    let code: string | undefined;
     try {
       const data = await response.json();
       if (typeof data?.detail === "string") detail = data.detail;
+      if (typeof data?.code === "string") code = data.code;
     } catch {
       /* not JSON */
     }
-    throw new ApiError(detail, response.status);
+    throw new ApiError(detail, response.status, undefined, code);
   }
 
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);

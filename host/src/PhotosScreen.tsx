@@ -226,6 +226,7 @@ export function PhotosScreen({
           <Button
             label={t("gallery.deleteSelected", { count: selectedCount })}
             variant="danger"
+            tone="dark"
             disabled={selectedCount === 0 || busy}
             onPress={() => setConfirming("many")}
           />
