@@ -9,7 +9,7 @@ Two audiences with very different rights:
 """
 
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
@@ -325,12 +325,25 @@ def publish_event(request, event_id: str, payload: PublishIn) -> Event:
         if not event.capture_ends_at:
             raise HttpError(400, "Set when capture ends before publishing.")
         event.status = EventStatus.PUBLISHED
+        fields = ["status"]
+        # Publishing means "open now". If the scheduled window doesn't cover this
+        # moment — it starts later, or has already ended — shift it to start now,
+        # keeping the intended duration, so capture is live immediately and the
+        # host (and guests scanning the code) can shoot straight away.
+        now = timezone.now()
+        starts, ends = event.capture_starts_at, event.capture_ends_at
+        if (starts and starts > now) or ends <= now:
+            duration = ends - starts if starts and ends > starts else timedelta(hours=12)
+            event.capture_starts_at = now
+            event.capture_ends_at = now + duration
+            fields += ["capture_starts_at", "capture_ends_at"]
+        event.save(update_fields=fields)
     else:
         if event.participants.exists():
             raise HttpError(400, "Guests have already joined; this event cannot return to draft.")
         event.status = EventStatus.DRAFT
+        event.save(update_fields=["status"])
 
-    event.save(update_fields=["status"])
     return event
 
 

@@ -4,7 +4,7 @@ Focus is on ownership scoping and the validation rules a host can actually
 trip over — the rest is CRUD.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from django.utils import timezone
@@ -264,6 +264,27 @@ def test_publish_makes_the_join_code_work(client, host):
     guest_view = client.get(f"/api/events/by-code/{created['join_code']}")
     assert guest_view.status_code == 200
     assert guest_view.json()["title"] == "Anna & Ben"
+
+
+@pytest.mark.django_db
+def test_publishing_opens_capture_now_even_with_a_future_start(client, host):
+    # The default payload schedules capture to start in ten days.
+    created = client.post(
+        "/api/events", valid_payload(), content_type="application/json", headers=auth_headers(host)
+    ).json()
+    assert created["is_capture_open"] is False
+
+    published = client.post(
+        f"/api/events/{created['id']}/publish",
+        {"publish": True},
+        content_type="application/json",
+        headers=auth_headers(host),
+    ).json()
+
+    # Publishing pulls the start to now, so the host can shoot immediately.
+    assert published["is_capture_open"] is True
+    started = datetime.fromisoformat(published["capture_starts_at"])
+    assert started <= timezone.now()
 
 
 @pytest.mark.django_db

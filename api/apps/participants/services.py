@@ -200,7 +200,9 @@ def release_expired_reservations(participant: Participant) -> int:
 
 
 @transaction.atomic
-def reserve_shot(participant: Participant, *, content_type: str) -> Reservation:
+def reserve_shot(
+    participant: Participant, *, content_type: str, public_endpoint: str | None = None
+) -> Reservation:
     """Claim one shot and hand back a URL to upload it to.
 
     The reservation happens *before* the URL exists. A client that never
@@ -237,7 +239,7 @@ def reserve_shot(participant: Participant, *, content_type: str) -> Reservation:
 
     return Reservation(
         media=media,
-        upload_url=presign_put(media.storage_key, content_type),
+        upload_url=presign_put(media.storage_key, content_type, public_endpoint=public_endpoint),
         shots_remaining=locked.shots_remaining,
     )
 

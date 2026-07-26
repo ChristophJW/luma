@@ -11,6 +11,7 @@ both speak S3, which is why nothing here imports a vendor SDK beyond boto3.
 from __future__ import annotations
 
 import functools
+from urllib.parse import urlparse
 
 import boto3
 from botocore.client import Config
@@ -66,18 +67,41 @@ def public_client():
     return _build(settings.S3_PUBLIC_ENDPOINT_URL)
 
 
+@functools.lru_cache(maxsize=8)
+def _client_for(endpoint: str):
+    """A public client for a specific endpoint — see endpoint_for_host."""
+    return _build(endpoint)
+
+
+def endpoint_for_host(host: str) -> str:
+    """The storage endpoint on the same hostname the client reached the API on.
+
+    A dev convenience: the LAN address changes with the network, and a URL
+    signed against a stale one is unreachable from the phone — the single most
+    common reason an upload silently fails. Deriving the host from the request
+    keeps capture working with nothing to reconfigure and no restart. Scheme
+    and port stay as configured; only the host is swapped. Not used in
+    production, where S3_PUBLIC_ENDPOINT_URL is a real, stable endpoint.
+    """
+    base = urlparse(settings.S3_PUBLIC_ENDPOINT_URL)
+    port = f":{base.port}" if base.port else ""
+    return f"{base.scheme}://{host.split(':')[0]}{port}"
+
+
 def original_key(event_id, media_id, extension: str = "jpg") -> str:
     """Key layout. Grouping by event keeps deletion and export a prefix scan."""
     return f"events/{event_id}/originals/{media_id}.{extension}"
 
 
-def presign_put(key: str, content_type: str) -> str:
+def presign_put(key: str, content_type: str, *, public_endpoint: str | None = None) -> str:
     """A URL the browser can PUT one object to.
 
     The content type is baked into the signature, so a client cannot promise a
-    JPEG and upload something else.
+    JPEG and upload something else. `public_endpoint` overrides the configured
+    host for this one URL (see endpoint_for_host).
     """
-    return public_client().generate_presigned_url(
+    cl = _client_for(public_endpoint) if public_endpoint else public_client()
+    return cl.generate_presigned_url(
         "put_object",
         Params={
             "Bucket": settings.S3_BUCKET_ORIGINALS,
@@ -88,7 +112,7 @@ def presign_put(key: str, content_type: str) -> str:
     )
 
 
-def presign_get(key: str, bucket: str | None = None) -> str:
+def presign_get(key: str, bucket: str | None = None, *, public_endpoint: str | None = None) -> str:
     """A URL for reading one object, stable for the length of the cache TTL.
 
     Stability is the whole point. SigV4 embeds the signing timestamp, so
@@ -101,13 +125,16 @@ def presign_get(key: str, bucket: str | None = None) -> str:
     turns the whole chain back on, and costs nothing at the edge.
     """
     target = bucket or settings.S3_BUCKET_ORIGINALS
-    cache_key = f"presign:get:{target}:{key}"
+    # The endpoint is part of the cache key: a URL signed for one host must not
+    # be handed to a client that reached us on another.
+    cache_key = f"presign:get:{public_endpoint or 'default'}:{target}:{key}"
 
     cached = cache.get(cache_key)
     if cached:
         return cached
 
-    url = public_client().generate_presigned_url(
+    cl = _client_for(public_endpoint) if public_endpoint else public_client()
+    url = cl.generate_presigned_url(
         "get_object",
         Params={"Bucket": target, "Key": key},
         ExpiresIn=DOWNLOAD_URL_TTL,

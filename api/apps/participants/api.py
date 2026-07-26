@@ -6,6 +6,7 @@ A guest has no account, so the token *is* the identity.
 
 from datetime import datetime
 
+from django.conf import settings
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema, Status
@@ -15,7 +16,14 @@ from pydantic import Field
 from apps.accounts.services import resolve_session as resolve_host_session
 from apps.events.models import Event
 from apps.media.models import MediaAsset, ModerationStatus, ProcessingStatus
-from apps.media.storage import presign_get
+from apps.media.storage import endpoint_for_host, presign_get
+
+
+def _public_endpoint(request) -> str | None:
+    """In dev, sign storage URLs for the same host the client reached us on, so
+    a changing LAN IP never leaves a phone with an unreachable URL. In
+    production the configured endpoint is authoritative."""
+    return endpoint_for_host(request.get_host()) if settings.DEBUG else None
 
 from .services import (
     CaptureError,
@@ -176,7 +184,11 @@ def reserve(request, payload: ReserveIn):
     from .services import RESERVATION_TTL
 
     try:
-        reservation = reserve_shot(request.auth, content_type=payload.content_type)
+        reservation = reserve_shot(
+            request.auth,
+            content_type=payload.content_type,
+            public_endpoint=_public_endpoint(request),
+        )
     except CaptureError as refusal:
         return 409, RefusalOut(code=refusal.code, detail=str(refusal))
 
@@ -263,22 +275,15 @@ class PhotoOut(Schema):
     url: str
     created_at: datetime
 
-    @staticmethod
-    def resolve_id(obj: MediaAsset) -> str:
-        return str(obj.id)
-
-    @staticmethod
-    def resolve_url(obj: MediaAsset) -> str:
-        # Signed and short-lived. Derivatives do not exist yet, so this is the
-        # original — heavier than it should be, and the first thing the
-        # processing pipeline fixes.
-        return presign_get(obj.storage_key)
-
 
 @router.get("/photos", response=list[PhotoOut], tags=["guest"], auth=camera_auth)
 def my_photos(request):
     """Only ever this participant's own photographs."""
-    return (
+    # Built here rather than in a resolver so each signed URL can use the host
+    # the client actually reached us on (see _public_endpoint). The URL is
+    # short-lived and points at the original — derivatives are a later job.
+    endpoint = _public_endpoint(request)
+    photos = (
         MediaAsset.objects.filter(
             participant=request.auth,
             processing_status__in=VISIBLE_STATES,
@@ -286,6 +291,14 @@ def my_photos(request):
         .exclude(moderation_status=ModerationStatus.REMOVED)
         .order_by("-created_at")
     )
+    return [
+        PhotoOut(
+            id=str(photo.id),
+            url=presign_get(photo.storage_key, public_endpoint=endpoint),
+            created_at=photo.created_at,
+        )
+        for photo in photos
+    ]
 
 
 @router.delete("/photos/{media_id}", response={204: None}, tags=["guest"], auth=camera_auth)
