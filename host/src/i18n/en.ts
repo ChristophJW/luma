@@ -93,8 +93,8 @@ export const en = {
   "confirm.unpublishBody": "The QR code stops working and nobody new can join. Any photographs already taken are kept.",
   "confirm.unpublishConfirm": "Return to draft",
   "detail.theme": "Look",
-  "detail.blurOn": "Faces blurred",
-  "detail.blurOff": "Not blurred",
+  "detail.blurOn": "On",
+  "detail.blurOff": "Off",
   "status.draft": "Draft",
   "status.live": "Live",
   "status.scheduled": "Scheduled",
@@ -199,7 +199,7 @@ export const en = {
   "privacy.faceLookupBlocked": "Unavailable for events involving children.",
   "privacy.blurChildren": "Blur children's faces",
   "privacy.blurChildrenDescription":
-    "Faces recognised as children are blurred in the album, in downloads and in exports. Nobody is identified and nothing is stored — faces are found and then destroyed.",
+    "Blurred in the album and in downloads. Nobody is identified, nothing is stored.",
 
   // --- Shared -------------------------------------------------------------
   "toggle.on": "On",

@@ -97,8 +97,8 @@ export const de: Translations<HostDictionary> = {
   "confirm.unpublishBody": "Der QR-Code wird abgeschaltet und niemand kann mehr beitreten. Bereits aufgenommene Fotos bleiben erhalten.",
   "confirm.unpublishConfirm": "Zurück zum Entwurf",
   "detail.theme": "Look",
-  "detail.blurOn": "Gesichter unkenntlich",
-  "detail.blurOff": "Nicht unkenntlich",
+  "detail.blurOn": "An",
+  "detail.blurOff": "Aus",
   "status.draft": "Entwurf",
   "status.live": "Live",
   "status.scheduled": "Geplant",
@@ -202,9 +202,9 @@ export const de: Translations<HostDictionary> = {
   "privacy.faceLookupDescription":
     "Standardmäßig aus. Jeder Gast stimmt einzeln zu, und nur er selbst kann suchen — du bekommst nie ein Werkzeug zur Gesichtssuche.",
   "privacy.faceLookupBlocked": "Nicht verfügbar bei Events, auf denen Kinder fotografiert werden.",
-  "privacy.blurChildren": "Gesichter von Kindern unkenntlich machen",
+  "privacy.blurChildren": "Kindergesichter verpixeln",
   "privacy.blurChildrenDescription":
-    "Als Kind erkannte Gesichter werden im Album, in Downloads und in Exporten unkenntlich gemacht. Niemand wird identifiziert und nichts wird gespeichert — Gesichter werden gefunden und dann zerstört.",
+    "Im Album und in Downloads verpixelt. Niemand wird identifiziert, nichts gespeichert.",
 
   // --- Gemeinsam ----------------------------------------------------------
   "toggle.on": "An",
