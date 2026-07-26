@@ -32,17 +32,36 @@ export interface Photo {
   created_at: string;
 }
 
+// Fail fast instead of hanging: a request to an unreachable API (a stale dev
+// IP, a phone that wandered off the network) would otherwise sit on the OS TCP
+// timeout for a minute or more, which reads as "the gallery never loads".
+const REQUEST_TIMEOUT_MS = 12_000;
+
 async function call<T>(path: string, init: RequestInit & { token?: string } = {}): Promise<T> {
   const { token, ...rest } = init;
-  const response = await fetch(`${API_BASE}/api${path}`, {
-    ...rest,
-    headers: {
-      Accept: "application/json",
-      ...(rest.body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(rest.headers ?? {}),
-    },
-  });
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/api${path}`, {
+      ...rest,
+      signal: controller.signal,
+      headers: {
+        Accept: "application/json",
+        ...(rest.body ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(rest.headers ?? {}),
+      },
+    });
+  } catch (caught) {
+    // Timeout or transport failure. Status 0 marks it as retryable to the
+    // uploader and "offline" to the screens, rather than a real refusal.
+    const aborted = caught instanceof Error && caught.name === "AbortError";
+    throw new ApiError(aborted ? `Couldn't reach the server (${API_BASE}).` : "Network error.", 0);
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!response.ok) {
     let detail = "";

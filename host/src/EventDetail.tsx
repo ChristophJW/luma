@@ -66,8 +66,12 @@ export function EventDetail({
 
   // The counters are the point of this screen, so they keep themselves fresh
   // while a host is watching. A websocket comes later; polling is honest for
-  // now and costs one small request.
+  // now and costs one small request. Refresh immediately on mount too — the
+  // screen is entered with a copy of the event that is already stale (e.g. the
+  // photo count right after coming back from the camera), and waiting a whole
+  // interval to correct it reads as a broken counter.
   useEffect(() => {
+    void refresh();
     const timer = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(timer);
   }, [refresh]);
@@ -269,7 +273,7 @@ export function EventDetail({
           />
           {event.involves_minors ? (
             <Row
-              label={t("privacy.minors")}
+              label={t("privacy.blurChildren")}
               value={t(event.blur_child_faces ? "detail.blurOn" : "detail.blurOff")}
             />
           ) : null}

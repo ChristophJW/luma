@@ -24,6 +24,14 @@ import { useT } from "./i18n";
 import { Button, styles as ui } from "./ui";
 import { Zoomable } from "./Zoomable";
 
+// Fixed, slightly-irregular angles for the fanned photo stack, back to front.
+// The last entry (the newest photo) sits most upright and on top.
+const CARD_SLOTS = [
+  [{ translateX: -5 }, { translateY: 3 }, { rotate: "-12deg" }],
+  [{ translateX: 5 }, { translateY: -2 }, { rotate: "8deg" }],
+  [{ translateX: 0 }, { translateY: 0 }, { rotate: "-3deg" }],
+] as const;
+
 export function CameraScreen({
   event,
   accountToken,
@@ -53,6 +61,10 @@ export function CameraScreen({
   // A capture waiting to be kept or thrown away. Nothing is queued and no
   // shot is spent until it is kept.
   const [preview, setPreview] = useState<string | null>(null);
+  // The most recent photographs (newest first, up to three), fanned out on the
+  // gallery button. Local files the instant they are kept; the latest saved
+  // photos when the screen is re-opened.
+  const [recent, setRecent] = useState<string[]>([]);
 
   // Join our own event to obtain a camera session. Extracted rather than
   // inlined in the effect so the error screen can run it again — a failed
@@ -117,6 +129,28 @@ export function CameraScreen({
     };
   }, [token]);
 
+  // Seed the gallery-button thumbnail with the latest photo already saved, so
+  // re-opening the camera shows the last shot rather than an empty grid. A
+  // fresh capture below takes over instantly and without a round trip.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    capture
+      .photos(token)
+      .then((photos) => {
+        if (cancelled || photos.length === 0) return;
+        const latest = [...photos]
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .slice(0, 3)
+          .map((photo) => photo.url);
+        setRecent((current) => (current.length ? current : latest));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
   const total = participant?.shot_limit ?? event.shots_per_guest;
   const remaining = total - taken;
   const low = remaining <= 3 && remaining > 0;
@@ -147,14 +181,36 @@ export function CameraScreen({
   const keep = useCallback(async () => {
     if (!preview || !token) return;
 
+    const id = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+
+    // Copy a stable thumbnail before queue.add moves the original into the
+    // upload queue — where it is deleted once the upload confirms. Without this
+    // the gallery button would go blank moments after a photo is kept.
+    const thumb = `${FileSystem.documentDirectory}luma-last-${id}.jpg`;
+    const thumbOk = await FileSystem.copyAsync({ from: preview, to: thumb })
+      .then(() => true)
+      .catch(() => false);
+
     await queue.add({
-      id: `${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      id,
       uri: preview,
       eventId: event.id,
       createdAt: Date.now(),
       attempts: 0,
     });
 
+    if (thumbOk) {
+      setRecent((previous) => {
+        const next = [thumb, ...previous].slice(0, 3);
+        // Delete any local thumbnail that fell off the end; leave server URLs.
+        for (const gone of [thumb, ...previous].slice(3)) {
+          if (gone.startsWith("file:")) {
+            void FileSystem.deleteAsync(gone, { idempotent: true }).catch(() => undefined);
+          }
+        }
+        return next;
+      });
+    }
     setPreview(null);
     setTaken((count) => count + 1);
     void drain(token);
@@ -324,14 +380,34 @@ export function CameraScreen({
         <Pressable
           onPress={() => token && onOpenPhotos(token)}
           accessibilityLabel={t("gallery.open")}
-          style={styles.chrome}
+          style={recent.length ? styles.stack : styles.chrome}
         >
-          <View style={styles.gridGlyph}>
-            <View style={styles.gridCell} />
-            <View style={styles.gridCell} />
-            <View style={styles.gridCell} />
-            <View style={styles.gridCell} />
-          </View>
+          {recent.length ? (
+            // Render oldest→newest so the newest photo sits on top. Each card
+            // gets a fixed, slightly-off angle for a casual, hand-laid look.
+            recent
+              .slice(0, 3)
+              .reverse()
+              .map((uri, index, shown) => {
+                const slot = CARD_SLOTS[CARD_SLOTS.length - shown.length + index];
+                return (
+                  <Image
+                    key={uri}
+                    source={uri}
+                    style={[styles.card, { transform: slot }]}
+                    contentFit="cover"
+                    transition={120}
+                  />
+                );
+              })
+          ) : (
+            <View style={styles.gridGlyph}>
+              <View style={styles.gridCell} />
+              <View style={styles.gridCell} />
+              <View style={styles.gridCell} />
+              <View style={styles.gridCell} />
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -475,6 +551,25 @@ const styles = StyleSheet.create({
   },
   gridGlyph: { width: 16, height: 16, flexDirection: "row", flexWrap: "wrap", gap: 2 },
   gridCell: { width: 7, height: 7, backgroundColor: paper[100], borderRadius: 1 },
+  // Once photos exist the button becomes a small fanned stack of the latest
+  // three — a casual, hand-laid pile rather than a neat grid.
+  stack: { width: 54, height: 48, alignItems: "center", justifyContent: "center" },
+  card: {
+    position: "absolute",
+    top: 5,
+    left: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: paper[100],
+    backgroundColor: ink[700],
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 4,
+  },
 
   flash: { ...StyleSheet.absoluteFillObject, backgroundColor: paper[100], opacity: 0.15 },
 

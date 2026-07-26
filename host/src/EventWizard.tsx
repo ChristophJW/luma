@@ -154,11 +154,12 @@ export function EventWizard({
   function set<K extends keyof EventDraft>(key: K, value: EventDraft[K]) {
     setDraft((current) => {
       const next = { ...current, [key]: value };
-      if (key === "involves_minors") {
-        // Declaring children rules out lookup and switches blurring on — the
-        // protective default, which a host can still turn off deliberately.
+      if (key === "blur_child_faces") {
+        // Asking for blurring is itself the declaration that children are
+        // present — the server refuses one without the other — and declaring
+        // children rules out face lookup.
+        next.involves_minors = value === true;
         next.face_lookup_enabled = value === true ? false : next.face_lookup_enabled;
-        next.blur_child_faces = value === true;
       }
       return next;
     });
@@ -243,7 +244,9 @@ export function EventWizard({
                   value={draft.title}
                   onChangeText={(value) => set("title", value)}
                   placeholder={t("basics.namePlaceholder")}
-                  autoFocus
+                  // Creating: jump straight to the name. Editing: the field is
+                  // already filled, so opening the keyboard just hides content.
+                  autoFocus={!isEditing}
                   accessibilityLabel={t("basics.nameLabel")}
                 />
               </Field>
@@ -381,29 +384,10 @@ export function EventWizard({
                 onChange={(value) => set("guest_downloads_enabled", value)}
               />
               <Toggle
-                label={t("privacy.minors")}
-                description={t("privacy.minorsDescription")}
-                value={draft.involves_minors}
-                onChange={(value) => set("involves_minors", value)}
-              />
-              {draft.involves_minors ? (
-                <Toggle
-                  label={t("privacy.blurChildren")}
-                  description={t("privacy.blurChildrenDescription")}
-                  value={draft.blur_child_faces}
-                  onChange={(value) => set("blur_child_faces", value)}
-                />
-              ) : null}
-              <Toggle
-                label={t("privacy.faceLookup")}
-                description={
-                  draft.involves_minors
-                    ? t("privacy.faceLookupBlocked")
-                    : t("privacy.faceLookupDescription")
-                }
-                value={draft.face_lookup_enabled}
-                onChange={(value) => set("face_lookup_enabled", value)}
-                disabled={draft.involves_minors}
+                label={t("privacy.blurChildren")}
+                description={t("privacy.blurChildrenDescription")}
+                value={draft.blur_child_faces}
+                onChange={(value) => set("blur_child_faces", value)}
               />
             </>
           )}
