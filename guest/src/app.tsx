@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import { ApiError, type EventPublic, type Participant, api } from "./api";
 import { Camera } from "./Camera";
 import { Gallery } from "./Gallery";
+import { Logo } from "./Logo";
 import { locale, t } from "./i18n";
 import { onQueueChange, startDraining } from "./uploader";
 
@@ -186,7 +187,7 @@ export function App() {
 
     case "no-code":
       return (
-        <Screen eyebrow="LUMA" centred>
+        <Screen brand centred>
           <p class="body muted">Scan the QR code at your event to join.</p>
         </Screen>
       );
@@ -209,6 +210,7 @@ export function App() {
       const { event } = screen;
       return (
         <Screen
+          brand
           eyebrow={t("cover.invitedTo")}
           title={event.title}
           centred
@@ -402,12 +404,15 @@ function Roll({
  */
 function Screen({
   eyebrow,
+  brand,
   title,
   centred,
   children,
   action,
 }: {
   eyebrow?: string;
+  /** Show the Luma lockup in place of a text eyebrow — for entry screens. */
+  brand?: boolean;
   title?: string;
   centred?: boolean;
   children?: preact.ComponentChildren;
@@ -416,6 +421,7 @@ function Screen({
   return (
     <main class="screen">
       <div class={centred ? "screen-body is-centred" : "screen-body"}>
+        {brand ? <Logo height={30} /> : null}
         {eyebrow ? <p class="eyebrow">{eyebrow}</p> : null}
         {title ? <h1 class="display">{title}</h1> : null}
         {children}

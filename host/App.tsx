@@ -31,6 +31,7 @@ import { type LumaEvent, type User, api, events } from "./src/api";
 import { clearToken, loadToken } from "./src/session";
 import { SignIn } from "./src/SignIn";
 import { Body, Button, styles as ui } from "./src/ui";
+import { Wordmark } from "./src/Wordmark";
 
 type State =
   | { kind: "loading" }
@@ -212,7 +213,7 @@ function Home({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
       ]}
     >
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>LUMA</Text>
+        <Wordmark />
         <Text style={ui.display}>{t("events.title")}</Text>
         <Body muted>{t("events.signedInAs", { email: user.email })}</Body>
 

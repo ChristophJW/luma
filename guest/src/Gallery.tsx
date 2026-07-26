@@ -13,6 +13,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import { type Photo, api } from "./api";
 import { t } from "./i18n";
+import { Mark } from "./Logo";
 
 const SKELETON_TILES = 6;
 
@@ -82,6 +83,7 @@ export function Gallery({
         {photos ? (
           <span class="gallery-count">{photos.length}</span>
         ) : null}
+        <Mark size={20} />
       </header>
 
       {photos === null ? (

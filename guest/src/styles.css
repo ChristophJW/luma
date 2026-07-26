@@ -83,6 +83,18 @@ body {
   color: var(--luma-ink-500);
 }
 
+/* The brand lockup takes its wordmark colour from `currentColor`; on the dark
+   guest ground that is paper. The mark keeps its own amber glow. */
+.luma-logo {
+  display: block;
+  color: var(--luma-paper-100);
+}
+
+.luma-mark {
+  display: block;
+  flex: none;
+}
+
 .display {
   font-family: var(--luma-font-display);
   font-size: 34px;

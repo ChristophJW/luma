@@ -23,6 +23,7 @@ import { glow, ink, paper, radius, safelight, space } from "@luma/tokens";
 import { ApiError, api, type User } from "./api";
 import { useI18n } from "./i18n";
 import { saveToken } from "./session";
+import { Wordmark } from "./Wordmark";
 
 const CODE_LENGTH = 6;
 
@@ -113,9 +114,12 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
         { paddingTop: insets.top + space[6], paddingBottom: insets.bottom + space[6] },
       ]}
     >
+      <View style={styles.brand}>
+        <Wordmark />
+      </View>
+      <View style={styles.centre}>
       {step === "email" ? (
         <View style={styles.form}>
-          <Text style={styles.eyebrow}>LUMA</Text>
           <Text style={styles.title}>{t("signIn.title")}</Text>
           <Text style={styles.body}>{t("signIn.lede")}</Text>
 
@@ -151,7 +155,6 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
         </View>
       ) : (
         <View style={styles.form}>
-          <Text style={styles.eyebrow}>LUMA</Text>
           <Text style={styles.title}>{t("code.title")}</Text>
           <Text style={styles.body}>
             {t("code.lede", { length: CODE_LENGTH, email: email.trim() })}
@@ -205,6 +208,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
           </View>
         </View>
       )}
+      </View>
     </View>
   );
 }
@@ -243,8 +247,19 @@ function Button({
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    justifyContent: "center",
     padding: space[6],
+  },
+  // The lockup sits at the top, its left edge lined up with the form below.
+  brand: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+  },
+  // The form stays optically centred in the space beneath the lockup.
+  centre: {
+    flex: 1,
+    justifyContent: "center",
+    width: "100%",
   },
   form: {
     width: "100%",

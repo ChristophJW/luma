@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-26.40 -158.40 196.80 196.80" fill="none">
+<defs><linearGradient id="glow" x1="0" y1="-132.0" x2="0" y2="12.0" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#F2B45C"/><stop offset="1" stop-color="#C47621"/></linearGradient></defs>
+<path d="M 72.00 -132.00 Q 89.28 -77.28 144.00 -60.00 Q 89.28 -42.72 72.00 12.00 Q 54.72 -42.72 0.00 -60.00 Q 54.72 -77.28 72.00 -132.00 Z" fill="url(#glow)"/>
+</svg>

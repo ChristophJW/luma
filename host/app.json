@@ -15,7 +15,7 @@
     "android": {
       "package": "de.luma.host",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFDFA",
+        "backgroundColor": "#14110F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
