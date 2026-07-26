@@ -7,7 +7,7 @@ include .env
 export
 endif
 
-.PHONY: help setup dev up down reset logs api guest host host-web worker \
+.PHONY: help setup dev up down reset logs api guest host host-web worker marketing \
         migrate makemigrations seed shell superuser test lint format check ps urls \
         reset-db mail-test host-clear android android-release devices
 
@@ -117,6 +117,13 @@ host-clear: ## Run the Expo host app, wiping every Metro cache first
 host-web: ## Run the Expo host app directly in the browser
 	npm run web --workspace host
 
+marketing: ## Serve the marketing landing page (static export) at :5174
+	# A self-contained page exported from Claude's design tool — it pulls React
+	# from a CDN and assembles itself, so a plain static server is all it needs.
+	# Not editable source; regenerate it in the design tool and re-export.
+	@echo "→ marketing  http://127.0.0.1:5174"
+	python3 -m http.server 5174 --directory marketing
+
 migrate: ## Apply database migrations
 	cd api && uv run python manage.py migrate
 
@@ -153,5 +160,6 @@ urls: ## Print the local URLs
 	@echo "API docs   http://127.0.0.1:8000/api/docs"
 	@echo "Admin      http://127.0.0.1:8000/admin"
 	@echo "Guest      http://127.0.0.1:5173"
+	@echo "Marketing  http://127.0.0.1:5174"
 	@echo "MinIO      http://127.0.0.1:9011"
 	@echo "Mailpit    http://127.0.0.1:8035"

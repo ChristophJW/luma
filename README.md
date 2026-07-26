@@ -68,6 +68,7 @@ To sign in, enter the email and read the 6-digit code in **Mailpit**
 | API docs | http://127.0.0.1:8000/api/docs | interactive OpenAPI |
 | Admin | http://127.0.0.1:8000/admin | `make superuser` first |
 | Guest camera | http://127.0.0.1:5173 | |
+| Marketing | http://127.0.0.1:5174 | `make marketing` |
 | MinIO console | http://127.0.0.1:9011 | `lumaminio` / `lumaminio` |
 | Mailpit | http://127.0.0.1:8035 | catches every outbound email |
 
@@ -87,7 +88,7 @@ host/                Expo (SDK 57) — iOS, Android and web from one codebase
 packages/tokens/     design tokens shared across all frontends
 scripts/             dev runner, bundle-size gate
 infra/terraform/     Hetzner Cloud, German locations only
-marketing/           Next.js static site — not scaffolded yet
+marketing/           landing page (static export) — `make marketing`
 ```
 
 ## Commands
