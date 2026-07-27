@@ -36,6 +36,9 @@ build/
 api/media/
 api/staticfiles/
 
+# local blur-test output (manage.py blur_image default)
+api/out.jpg
+
 # terraform
 # .terraform.lock.hcl is deliberately NOT ignored — commit it so provider
 # versions are reproducible across machines and CI.
