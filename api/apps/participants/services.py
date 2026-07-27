@@ -276,7 +276,14 @@ def confirm_upload(
 
     locked = Participant.objects.select_for_update().get(pk=participant.pk)
 
-    media.processing_status = ProcessingStatus.UPLOADED
+    # When the event blurs children's faces, the photo is not album-visible
+    # until a derivative exists. It waits in PROCESSING while the faces task
+    # runs; the album keys off the blurred derivative, so the original is never
+    # served. Without blurring it is committed straight to UPLOADED, as before.
+    blur = locked.event.blur_child_faces
+    media.processing_status = (
+        ProcessingStatus.PROCESSING if blur else ProcessingStatus.UPLOADED
+    )
     media.uploaded_at = timezone.now()
     media.captured_at = captured_at or media.captured_at
     if byte_size:
@@ -291,7 +298,20 @@ def confirm_upload(
     locked.shots_committed += 1
     locked.save(update_fields=["shots_reserved", "shots_committed"])
 
+    if blur:
+        # After commit only: the worker must not race the row it processes.
+        media_id = media.id
+        transaction.on_commit(lambda: _dispatch_blur(media_id))
+
     return media
+
+
+def _dispatch_blur(media_id) -> None:
+    # Imported lazily so the capture path never hard-depends on the faces app
+    # or Celery being importable at module load.
+    from apps.faces.tasks import blur_faces
+
+    blur_faces.delay(str(media_id))
 
 
 @transaction.atomic

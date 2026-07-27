@@ -26,6 +26,10 @@ class MediaAsset(models.Model):
     )
 
     storage_key = models.CharField(max_length=512)
+    # The child-face-blurred derivative, written by the faces Celery task. Set
+    # only once blurring has actually run; the album keys visibility off its
+    # presence, so an original can never be served in a blur-on event.
+    blurred_storage_key = models.CharField(max_length=512, blank=True, default="")
     mime_type = models.CharField(max_length=64, blank=True)
     byte_size = models.BigIntegerField(null=True, blank=True)
     width = models.PositiveIntegerField(null=True, blank=True)

@@ -81,18 +81,20 @@ async function call<T>(path: string, init: RequestInit & { token?: string } = {}
 
 export const capture = {
   /**
-   * Join the event as its host.
+   * Join the event.
    *
-   * The account header links the participation to the signed-in user, so a
-   * host ends up with one identity rather than an anonymous second one.
+   * With an account token the participation is linked to the signed-in user,
+   * so a host ends up with one identity rather than an anonymous second one.
+   * Without it — a guest scanning the QR from the sign-in screen — the join is
+   * anonymous, exactly as the guest web app does it.
    */
-  join: (joinCode: string, accountToken: string, displayName: string) =>
+  join: (joinCode: string, accountToken: string | undefined, displayName: string) =>
     call<{ token: string; created: boolean; participant: CameraParticipant }>(
       `/guest/join/${encodeURIComponent(joinCode)}`,
       {
         method: "POST",
         body: JSON.stringify({ display_name: displayName }),
-        headers: { "X-Luma-Account": accountToken },
+        headers: accountToken ? { "X-Luma-Account": accountToken } : undefined,
       },
     ),
 

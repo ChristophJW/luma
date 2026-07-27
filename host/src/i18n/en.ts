@@ -12,6 +12,29 @@ export const en = {
   "signIn.emailLabel": "Email address",
   "signIn.emailPlaceholder": "you@example.com",
   "signIn.continue": "Continue",
+  "signIn.or": "or",
+  "signIn.scanQr": "Scan QR code",
+
+  // --- Guest mode ---------------------------------------------------------
+  // A guest at the party, holding the same app, joining by QR. No account.
+  "guest.scanned": "Code scanned",
+  "guest.nameTitle": "What's your name?",
+  "guest.nameLede": "It goes on the photos you take, so people know who caught the moment.",
+  "guest.nameLabel": "Your name",
+  "guest.namePlaceholder": "First name is plenty",
+  "guest.nameContinue": "Start taking photos",
+  "guest.rescan": "Scan a different code",
+
+  "scan.hint": "Point at the event's QR code",
+  "scan.invalid": "That isn't an event code. Try again, or type it in.",
+  "scan.enterInstead": "Enter code instead",
+  "scan.useCamera": "Scan with the camera",
+  "scan.manualTitle": "Enter the event code",
+  "scan.manualBody": "It's printed under the QR code — on the table cards, or wherever you found it.",
+  "scan.codeLabel": "Event code",
+  "scan.codePlaceholder": "ABC123",
+  "scan.join": "Join",
+  "scan.permissionBody": "Only to read the event's QR code. Nothing is recorded until you start taking photographs.",
 
   "code.title": "Check your email",
   "code.lede": "We sent a {length}-digit code to {email}",
@@ -19,6 +42,7 @@ export const en = {
   "code.resend": "Send a new code",
   "code.resendIn": "Resend in {seconds}s",
   "code.differentEmail": "Use a different email",
+  "code.paste": "Tap to paste {code}",
 
   // Each failure says what to do next, and none blames the person for
   // something that is not theirs to fix. DESIGN.md §12.
@@ -66,6 +90,13 @@ export const en = {
   "camera.openSettings": "Open settings",
   "camera.joinFailed": "Couldn't open the camera for this event. Check your connection and try again.",
   "gallery.open": "Your photos",
+  "album.title": "Album",
+  "album.open": "Open the album",
+  "album.by": "by {name}",
+  "album.sortTime": "Newest",
+  "album.sortName": "By name",
+  "album.empty": "No photographs in the album yet.",
+  "album.notOpen": "The album isn't open yet. Open it to see everyone's photos.",
   "gallery.back": "Back",
   "gallery.close": "Close",
   "gallery.empty": "Nothing here yet. Your photos will appear as you take them.",

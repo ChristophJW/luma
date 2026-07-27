@@ -89,6 +89,12 @@ class LoginCode(models.Model):
     email = models.EmailField(db_index=True)
     code_hash = models.CharField(max_length=255)
 
+    # The magic-link counterpart to the code. A high-entropy token carried in
+    # the sign-in email; tapping the link verifies without typing anything.
+    # Only its hash is stored, and it shares this row's single-use / expiry
+    # lifecycle with the code — the same email, two ways to prove it arrived.
+    link_token_hash = models.CharField(max_length=64, blank=True, db_index=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     consumed_at = models.DateTimeField(null=True, blank=True)

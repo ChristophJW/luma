@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { glow, ink, paper, radius, safelight, space } from "@luma/tokens";
 
-import { ApiError, type LumaEvent } from "./api";
+import { ApiError } from "./api";
 import { type CameraParticipant, capture } from "./capture/api";
 import { queue } from "./capture/queue";
 import { drain, onQueueChange, startDraining } from "./capture/uploader";
@@ -33,17 +33,27 @@ const CARD_SLOTS = [
 ] as const;
 
 export function CameraScreen({
-  event,
+  joinCode,
   accountToken,
   displayName,
+  cachedToken,
+  onJoined,
   onClose,
   onOpenPhotos,
 }: {
-  event: LumaEvent;
-  accountToken: string;
+  joinCode: string;
+  /** Absent for a guest who scanned in from the sign-in screen. */
+  accountToken?: string;
   displayName: string;
+  /**
+   * A camera session from a previous visit to this event. When present it is
+   * resumed rather than re-joined, so the guest returns to the same roll.
+   */
+  cachedToken?: string;
+  /** Fired once a session is established, so the caller can remember it. */
+  onJoined?: (cameraToken: string, participant: CameraParticipant) => void;
   onClose: () => void;
-  onOpenPhotos: (cameraToken: string) => void;
+  onOpenPhotos: (cameraToken: string, eventTitle: string) => void;
 }) {
   const insets = useSafeAreaInsets();
   const t = useT();
@@ -75,10 +85,27 @@ export function CameraScreen({
     setJoining(true);
     setError(null);
     try {
-      const result = await capture.join(event.join_code, accountToken, displayName || "Host");
+      // Resume a remembered session first. capture.me keeps the same
+      // participant — and their shot count — rather than opening a second one.
+      // If the token has since expired, fall through to a fresh join.
+      if (cachedToken) {
+        try {
+          const participant = await capture.me(cachedToken);
+          setToken(cachedToken);
+          setParticipant(participant);
+          setTaken(participant.shots_committed);
+          onJoined?.(cachedToken, participant);
+          return;
+        } catch {
+          /* stale token — join afresh below */
+        }
+      }
+
+      const result = await capture.join(joinCode, accountToken, displayName || "Host");
       setToken(result.token);
       setParticipant(result.participant);
       setTaken(result.participant.shots_committed);
+      onJoined?.(result.token, result.participant);
     } catch (caught) {
       // The server names the reason with a stable code; the wording comes
       // from here, in the reader's language. Showing the server's English
@@ -92,7 +119,7 @@ export function CameraScreen({
     } finally {
       setJoining(false);
     }
-  }, [event.join_code, accountToken, displayName]);
+  }, [joinCode, accountToken, displayName, cachedToken, onJoined]);
 
   useEffect(() => {
     void join();
@@ -151,7 +178,7 @@ export function CameraScreen({
     };
   }, [token]);
 
-  const total = participant?.shot_limit ?? event.shots_per_guest;
+  const total = participant?.shot_limit ?? 0;
   const remaining = total - taken;
   const low = remaining <= 3 && remaining > 0;
 
@@ -194,7 +221,10 @@ export function CameraScreen({
     await queue.add({
       id,
       uri: preview,
-      eventId: event.id,
+      // The queue only tags each shot; the uploader drains by camera token,
+      // not by event. The join code is a stable per-event tag we always have,
+      // account or not.
+      eventId: joinCode,
       createdAt: Date.now(),
       attempts: 0,
     });
@@ -214,7 +244,7 @@ export function CameraScreen({
     setPreview(null);
     setTaken((count) => count + 1);
     void drain(token);
-  }, [preview, token, event.id]);
+  }, [preview, token, joinCode]);
 
   /** Throw it away, and the file with it — the cache would fill up otherwise. */
   const retake = useCallback(async () => {
@@ -378,7 +408,7 @@ export function CameraScreen({
         />
 
         <Pressable
-          onPress={() => token && onOpenPhotos(token)}
+          onPress={() => token && onOpenPhotos(token, participant?.event_title ?? "")}
           accessibilityLabel={t("gallery.open")}
           style={recent.length ? styles.stack : styles.chrome}
         >

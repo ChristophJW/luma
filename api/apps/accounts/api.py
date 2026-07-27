@@ -6,7 +6,9 @@ know, and neither can an attacker. CONCEPT.md §4.
 """
 
 import logging
+from urllib.parse import quote
 
+from django.conf import settings
 from django.http import HttpRequest
 from django.utils.translation import get_language_from_request
 from ninja import Router, Schema, Status
@@ -22,6 +24,7 @@ from .services import (
     resolve_session,
     revoke_session,
     verify_login_code,
+    verify_login_link,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,7 +74,7 @@ def request_code(request, payload: RequestCodeIn) -> RequestCodeOut:
     able to enumerate accounts by watching status codes or timing.
     """
     try:
-        _, code = issue_login_code(
+        _, code, link_token = issue_login_code(
             payload.email,
             ip=_client_ip(request),
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
@@ -83,8 +86,10 @@ def request_code(request, payload: RequestCodeIn) -> RequestCodeOut:
 
     language = payload.language or get_language_from_request(request, check_path=False) or "en"
 
+    link = f"{settings.HOST_BASE_URL.rstrip('/')}/?magic={quote(link_token)}"
+
     try:
-        send_login_code(payload.email, code, language=language)
+        send_login_code(payload.email, code, link=link, language=language)
     except Exception:
         # Never leak delivery failure detail to the caller — it is another
         # enumeration channel. Log it and alert on it instead.
@@ -132,6 +137,36 @@ def verify_code(request, payload: VerifyCodeIn) -> VerifyCodeOut:
 
     if result is None:
         raise HttpError(400, "That code didn't work. Check it, or ask for a new one.")
+
+    return VerifyCodeOut(
+        token=result.token,
+        user=UserOut(
+            id=str(result.user.id),
+            email=result.user.email,
+            display_name=result.user.display_name,
+        ),
+        created=result.created,
+    )
+
+
+# --- Verify a magic link ---------------------------------------------------
+
+
+class VerifyLinkIn(Schema):
+    token: str = Field(min_length=1)
+
+
+@router.post("/verify-link", response=VerifyCodeOut, tags=["auth"], auth=None)
+def verify_link(request, payload: VerifyLinkIn) -> VerifyCodeOut:
+    """Verify a magic-link token and sign in — the no-typing counterpart to
+    verify-code. Same single 400 on any failure."""
+    result = verify_login_link(
+        payload.token,
+        user_agent=request.META.get("HTTP_USER_AGENT", ""),
+    )
+
+    if result is None:
+        raise HttpError(400, "That sign-in link didn't work. Ask for a new code.")
 
     return VerifyCodeOut(
         token=result.token,

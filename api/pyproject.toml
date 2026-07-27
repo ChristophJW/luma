@@ -22,6 +22,13 @@ dependencies = [
     # QR rendering. Server-side so the same source produces the in-app code,
     # the printable signs and the table cards (CHECKLIST.md §6).
     "qrcode>=8.0",
+    # Local child-face blurring in the inference worker (apps/faces). Headless
+    # so it pulls no GUI/X11 libs on a server. numpy is its own transitive dep
+    # but pinned here because the blur task uses it directly.
+    # Pinned <5: OpenCV 5 dropped the Caffe importer (readNetFromCaffe) that the
+    # Levi & Hassner age net needs. Revisit with an ONNX age model to move to 5.
+    "opencv-python-headless>=4.10,<5",
+    "numpy>=2.0",
     # pgvector is installed now so the face-lookup migration path exists later.
     # Nothing uses it yet — the feature is off by default (CONCEPT.md §7).
     "pgvector>=0.3",

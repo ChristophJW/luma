@@ -71,7 +71,7 @@ for service in "${SERVICES[@]}"; do
       start host npm run dev --workspace host
       ;;
     worker)
-      start worker uv run --directory api celery -A config worker -l info -Q default
+      start worker uv run --directory api celery -A config worker -l info -Q default,inference
       ;;
     *)
       echo "Unknown service: $service" >&2

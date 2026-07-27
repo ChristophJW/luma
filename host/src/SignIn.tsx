@@ -6,15 +6,17 @@
  * already exists.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import * as Clipboard from "expo-clipboard";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -29,7 +31,14 @@ const CODE_LENGTH = 6;
 
 type Step = "email" | "code";
 
-export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
+export function SignIn({
+  onSignedIn,
+  onScanQr,
+}: {
+  onSignedIn: (user: User) => void;
+  /** Leave host sign-in and join an event as a guest by scanning its QR. */
+  onScanQr: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
   const [step, setStep] = useState<Step>("email");
@@ -38,6 +47,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  // A code sitting on the clipboard, ready to paste in one tap. On Android
+  // there is no OS autofill for an emailed code, so this is the way the code
+  // gets in without typing: copy it in the mail app, come back, tap.
+  const [clipboardCode, setClipboardCode] = useState<string | null>(null);
 
   const codeInput = useRef<TextInput>(null);
 
@@ -47,6 +60,29 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
     const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  const checkClipboard = useCallback(async () => {
+    try {
+      const text = (await Clipboard.getStringAsync()).trim();
+      setClipboardCode(new RegExp(`^\\d{${CODE_LENGTH}}$`).test(text) ? text : null);
+    } catch {
+      // Reading can be refused (web permissions, locked pasteboard). Silent —
+      // typing still works.
+      setClipboardCode(null);
+    }
+  }, []);
+
+  // Look once when the code screen appears, and again whenever the app comes
+  // back to the foreground — the usual moment is returning from the mail app
+  // with the code freshly copied.
+  useEffect(() => {
+    if (step !== "code") return;
+    void checkClipboard();
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") void checkClipboard();
+    });
+    return () => subscription.remove();
+  }, [step, checkClipboard]);
 
   async function requestCode(isResend = false) {
     setError(null);
@@ -152,12 +188,44 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
             disabled={!email.trim() || busy}
             busy={busy}
           />
+
+          {/* The way in for guests — no account, no code. It sits under the
+              divider so it reads as a separate path, not a second way to
+              sign in. */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerLabel}>{t("signIn.or")}</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <Pressable
+            onPress={onScanQr}
+            disabled={busy}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.scanButton, pressed && styles.buttonPressed]}
+          >
+            <Text style={styles.scanLabel}>{t("signIn.scanQr")}</Text>
+          </Pressable>
         </View>
       ) : (
         <View style={styles.form}>
           <Text style={styles.title}>{t("code.title")}</Text>
           <Text style={styles.body}>
-            {t("code.lede", { length: CODE_LENGTH, email: email.trim() })}
+            {(() => {
+              // Pull the address out of the sentence and set it apart, so the
+              // reader can confirm at a glance we sent it to the right place.
+              const address = email.trim();
+              const lede = t("code.lede", { length: CODE_LENGTH, email: address });
+              const [before, ...after] = lede.split(address);
+              if (after.length === 0) return lede;
+              return (
+                <>
+                  {before}
+                  <Text style={styles.strong}>{address}</Text>
+                  {after.join(address)}
+                </>
+              );
+            })()}
           </Text>
 
           <TextInput
@@ -170,14 +238,29 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
             keyboardType="number-pad"
             inputMode="numeric"
             maxLength={CODE_LENGTH}
-            // The single attribute that removes most of the friction: iOS and
-            // Android offer the code above the keyboard.
+            // iOS can offer an emailed code above the keyboard from these two
+            // hints. Android has no such feature for email codes — the paste
+            // chip below is what covers it there.
             autoComplete="one-time-code"
             textContentType="oneTimeCode"
             autoFocus
             accessibilityLabel={t("code.inputLabel", { length: CODE_LENGTH })}
             editable={!busy}
           />
+
+          {clipboardCode && code.length === 0 ? (
+            <Pressable
+              onPress={() => {
+                const value = clipboardCode;
+                setClipboardCode(null);
+                onCodeChange(value);
+              }}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.pasteChip, pressed && styles.buttonPressed]}
+            >
+              <Text style={styles.pasteLabel}>{t("code.paste", { code: clipboardCode })}</Text>
+            </Pressable>
+          ) : null}
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {busy ? <ActivityIndicator color={glow[600]} /> : null}
@@ -285,6 +368,7 @@ const styles = StyleSheet.create({
   },
   strong: {
     color: ink[900],
+    fontWeight: "600",
   },
   input: {
     // 44pt minimum touch target, generous here because it is the only control.
@@ -329,6 +413,58 @@ const styles = StyleSheet.create({
     color: paper["000"],
     fontSize: 16,
     fontWeight: "500",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    marginTop: space[3],
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: paper[300],
+  },
+  dividerLabel: {
+    fontSize: 13,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: ink[500],
+  },
+  // Quiet against the solid Continue button above: this is the alternative,
+  // not the headline.
+  scanButton: {
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: paper[300],
+    backgroundColor: paper["000"],
+    marginTop: space[1],
+  },
+  scanLabel: {
+    color: ink[900],
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  // A suggestion, not a command: an outlined pill in the accent, the way a
+  // keyboard suggestion reads — offered, easy to ignore.
+  pasteChip: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: space[4],
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: glow[400],
+    backgroundColor: paper["000"],
+  },
+  pasteLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: glow[700],
+    fontVariant: ["tabular-nums"],
   },
   actions: {
     marginTop: space[2],

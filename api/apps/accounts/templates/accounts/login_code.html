@@ -1,0 +1,166 @@
+<!doctype html>
+{% comment %}
+Sign-in code email — the landing page, folded down to 560px.
+
+Design comes from DESIGN.md §4-6 and marketing/index.html: warm paper page,
+Fraunces-or-Georgia display type, one amber element (the code, set like the
+frame counter). All copy is passed in from emails.py so it stays written per
+language in one place.
+
+Email rules this file follows, and reasons to keep following them:
+
+* Tables and inline styles. Outlook renders through Word; padding on a <div>
+  and flexbox are both gone there.
+* No images, no web fonts, no external anything. Nothing may have to load
+  before the code is readable, and no request may report that the mail was
+  opened. Fraunces is named first for the few clients that have it locally;
+  Georgia is the real face and the same fallback the marketing site uses.
+* <style> carries only the dark-mode and narrow-screen passes. A client that
+  drops the block still gets the full design.
+{% endcomment %}
+<html lang="{{ language }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ subject }}</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    .luma-page, .luma-page td { background-color: #14110f !important; }
+    .luma-card { background-color: #1e1a17 !important; border-color: #2b2521 !important; }
+    .luma-ink { color: #f7f3ed !important; }
+    .luma-body { color: #ddd4c8 !important; }
+    .luma-muted { color: #8f8577 !important; }
+    .luma-eyebrow { color: #f2b45c !important; }
+    .luma-codebox { background-color: #14110f !important; border-color: #3d352f !important; }
+    .luma-rule { background-color: #2b2521 !important; }
+    /* The button inverts: paper on ink is invisible on a dark card. */
+    .luma-btn { background-color: #f7f3ed !important; color: #14110f !important; }
+  }
+  @media only screen and (max-width: 480px) {
+    .luma-pad { padding: 32px 24px !important; }
+    .luma-headline { font-size: 27px !important; line-height: 32px !important; }
+    .luma-code { font-size: 32px !important; letter-spacing: 0.16em !important; }
+  }
+</style>
+</head>
+<body class="luma-page" style="margin: 0; padding: 0; width: 100%; background-color: #f7f3ed; -webkit-font-smoothing: antialiased;">
+
+  <!-- Preheader: the code again, because the inbox preview is where most
+       people read it and never open the mail at all. -->
+  <div style="display: none; max-height: 0; overflow: hidden; mso-hide: all; font-size: 1px; line-height: 1px; color: #f7f3ed;">
+    {{ preheader }}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+  </div>
+
+  <table class="luma-page" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f7f3ed;">
+    <tr>
+      <td align="center" style="padding: 40px 16px 48px;">
+
+        <!--[if mso]><table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+        <!-- Fluid with a cap, not a fixed 560: a fixed width overflows a
+             phone-width viewport instead of reflowing. Outlook, which ignores
+             max-width, gets the fixed wrapper above. -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 560px;">
+
+          <!-- Wordmark, same face and tracking as the site nav. -->
+          <tr>
+            <td align="center" style="padding-bottom: 24px; font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-size: 26px; line-height: 30px; letter-spacing: -0.4px; color: #14110f;" class="luma-ink">
+              Luma
+            </td>
+          </tr>
+
+          <tr>
+            <td class="luma-card" style="background-color: #fffdfa; border: 1px solid #ede7de; border-radius: 16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td class="luma-pad" align="center" style="padding: 44px 40px;">
+
+                    <p class="luma-eyebrow" style="margin: 0 0 20px; font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 500; line-height: 16px; letter-spacing: 2px; text-transform: uppercase; color: #8a4e12;">
+                      {{ eyebrow }}
+                    </p>
+
+                    <h1 class="luma-headline luma-ink" style="margin: 0 0 28px; font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 32px; line-height: 38px; letter-spacing: -0.5px; color: #14110f;">
+                      {{ headline }}
+                    </h1>
+
+                    <!-- The code, treated like the frame counter: dark ground,
+                         amber, tabular figures, nothing beside it. -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td class="luma-codebox" align="center" style="background-color: #14110f; border: 1px solid #14110f; border-radius: 12px; padding: 26px 16px;">
+                          <div class="luma-code" style="font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 40px; font-weight: 600; line-height: 44px; letter-spacing: 0.2em; text-indent: 0.2em; color: #f2b45c; font-variant-numeric: tabular-nums; -webkit-font-feature-settings: 'tnum'; mso-line-height-rule: exactly;">
+                            {{ code }}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    {% if link %}
+                    <!-- Magic link: one tap, no typing. A padded anchor styled
+                         as a pill; the VML roundrect gives Outlook the fill it
+                         would otherwise drop. Inverts in dark mode (see style). -->
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 24px;">
+                      <tr>
+                        <td align="center">
+                          <!--[if mso]>
+                          <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ link }}" style="height: 52px; v-text-anchor: middle; width: 280px;" arcsize="50%" fillcolor="#14110f" stroke="f">
+                          <center style="color: #f7f3ed; font-family: 'Segoe UI', sans-serif; font-size: 16px; font-weight: 500;">{{ link_cta }}</center>
+                          </v:roundrect>
+                          <![endif]-->
+                          <!--[if !mso]><!-- -->
+                          <a href="{{ link }}" class="luma-btn" style="display: inline-block; padding: 16px 32px; font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 500; line-height: 20px; color: #f7f3ed; background-color: #14110f; border-radius: 999px; text-decoration: none;">
+                            {{ link_cta }}
+                          </a>
+                          <!--<![endif]-->
+                        </td>
+                      </tr>
+                    </table>
+
+                    <p class="luma-muted" style="margin: 12px 0 0; font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 19px; color: #7b7065;">
+                      {{ link_hint }}
+                    </p>
+                    {% endif %}
+
+                    <p class="luma-body" style="margin: 24px 0 0; font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px; color: #5a4f47;">
+                      {{ validity }}
+                    </p>
+
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding: 0 40px;">
+                    <div class="luma-rule" style="height: 1px; background-color: #ede7de; line-height: 1px; font-size: 0;">&nbsp;</div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td class="luma-pad" align="center" style="padding: 24px 40px 32px;">
+                    <p class="luma-muted" style="margin: 0; font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 21px; color: #7b7065;">
+                      {{ disclaimer }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding: 28px 24px 0;">
+              <p class="luma-muted" style="margin: 0; font-family: 'Fraunces', Georgia, 'Times New Roman', serif; font-size: 15px; line-height: 22px; color: #a89c8c;">
+                {{ tagline }}
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>

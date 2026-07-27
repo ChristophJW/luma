@@ -115,11 +115,13 @@ def _record_send(email: str, ip_hash: str) -> None:
 @transaction.atomic
 def issue_login_code(
     email: str, *, ip: str | None = None, user_agent: str = ""
-) -> tuple[LoginCode, str]:
-    """Create and store a code, returning it in plaintext exactly once.
+) -> tuple[LoginCode, str, str]:
+    """Create and store a code, returning (record, code, link_token) once.
 
-    The caller is responsible for delivering it. Nothing about the return
-    value tells you whether an account exists — that is the point.
+    The code is for typing (or OS autofill); the link token goes in the magic
+    link. Both are plaintext, returned exactly once, and never stored as such.
+    The caller delivers them. Nothing about the return value tells you whether
+    an account exists — that is the point.
     """
     email = normalize_email(email)
     ip_digest = hash_ip(ip)
@@ -133,16 +135,46 @@ def issue_login_code(
     )
 
     code = _generate_code()
+    # 256 bits — unguessable, so the link needs no attempt limit of its own.
+    link_token = secrets.token_urlsafe(32)
     login_code = LoginCode.objects.create(
         email=email,
         code_hash=make_password(code),
+        link_token_hash=hash_token(link_token),
         expires_at=timezone.now() + CODE_TTL,
         ip_hash=ip_digest,
         user_agent=user_agent[:300],
     )
 
     _record_send(email, ip_digest)
-    return login_code, code
+    return login_code, code, link_token
+
+
+def _establish_session(email: str, *, user_agent: str) -> VerifyResult:
+    """Sign the person in, creating the account if this is a new host.
+
+    The shared tail of both verification paths — code and link. The caller has
+    already proven the email arrived; this turns that into a session.
+    """
+    user, created = User.objects.get_or_create(email=email)
+
+    # Receiving the code (or link) at this address *is* the verification.
+    # There is no separate confirmation step (CONCEPT.md §4).
+    now = timezone.now()
+    if user.email_verified_at is None:
+        user.email_verified_at = now
+    user.last_login = now
+    user.save(update_fields=["email_verified_at", "last_login"])
+
+    token = secrets.token_urlsafe(32)
+    AuthSession.objects.create(
+        user=user,
+        token_hash=hash_token(token),
+        expires_at=now + SESSION_TTL,
+        user_agent=user_agent[:300],
+    )
+
+    return VerifyResult(token=token, user=user, created=created)
 
 
 def verify_login_code(email: str, code: str, *, user_agent: str = "") -> VerifyResult | None:
@@ -177,29 +209,48 @@ def verify_login_code(email: str, code: str, *, user_agent: str = "") -> VerifyR
         login_code.consumed_at = timezone.now()
         login_code.save(update_fields=["consumed_at"])
 
-        user, created = User.objects.get_or_create(email=email)
-
-        # Receiving the code at this address *is* the verification. There is
-        # no separate confirmation step (CONCEPT.md §4).
-        now = timezone.now()
-        if user.email_verified_at is None:
-            user.email_verified_at = now
-        user.last_login = now
-        user.save(update_fields=["email_verified_at", "last_login"])
-
-        token = secrets.token_urlsafe(32)
-        AuthSession.objects.create(
-            user=user,
-            token_hash=hash_token(token),
-            expires_at=now + SESSION_TTL,
-            user_agent=user_agent[:300],
-        )
+        result = _establish_session(email, user_agent=user_agent)
 
     # Signing in clears the cooldown — a successful login should not leave the
     # person rate-limited if they need another code later.
     cache.delete(f"auth:cooldown:{email}")
 
-    return VerifyResult(token=token, user=user, created=created)
+    return result
+
+
+def verify_login_link(token: str, *, user_agent: str = "") -> VerifyResult | None:
+    """Verify a magic-link token and sign the person in.
+
+    Same single-use, short-lived contract as the code, and the same silence on
+    failure. No attempt counter: the token is 256 bits, so guessing is not a
+    threat the way a 6-digit code is.
+    """
+    token = (token or "").strip()
+    if not token:
+        return None
+
+    token_hash = hash_token(token)
+
+    with transaction.atomic():
+        login_code = (
+            LoginCode.objects.select_for_update()
+            .filter(link_token_hash=token_hash, consumed_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if login_code is None or not login_code.is_usable:
+            return None
+
+        login_code.consumed_at = timezone.now()
+        login_code.save(update_fields=["consumed_at"])
+
+        email = login_code.email
+        result = _establish_session(email, user_agent=user_agent)
+
+    cache.delete(f"auth:cooldown:{email}")
+
+    return result
 
 
 def resolve_session(token: str) -> User | None:

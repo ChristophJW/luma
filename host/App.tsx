@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
+  Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,19 +25,36 @@ import { glow, ink, paper, radius, space } from "@luma/tokens";
 import { EventWizard } from "./src/EventWizard";
 import { PencilIcon, QrIcon } from "./src/Icons";
 import { CameraScreen } from "./src/CameraScreen";
+import { AlbumScreen } from "./src/AlbumScreen";
 import { EventDetail } from "./src/EventDetail";
+import { GuestFlow } from "./src/GuestFlow";
 import { PhotosScreen } from "./src/PhotosScreen";
 import { QrScreen } from "./src/QrScreen";
 import { I18nProvider, useT } from "./src/i18n";
 import { type LumaEvent, type User, api, events } from "./src/api";
-import { clearToken, loadToken } from "./src/session";
+import { clearToken, loadToken, saveToken } from "./src/session";
 import { SignIn } from "./src/SignIn";
 import { Body, Button, styles as ui } from "./src/ui";
 import { Wordmark } from "./src/Wordmark";
 
+/**
+ * The magic-link token, if this launch came from a sign-in link. Parsed by
+ * hand rather than via URL/URLSearchParams — React Native has no reliable URL
+ * parser, and one regex covers the scheme link on native and the https link on
+ * web alike.
+ */
+function magicTokenFrom(url: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/[?&]magic=([^&#]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 type State =
   | { kind: "loading" }
   | { kind: "signed-out" }
+  // A guest who scanned in from the sign-in screen. No account — the camera
+  // joins anonymously. Leaving returns to sign-in.
+  | { kind: "guest" }
   | { kind: "signed-in"; user: User };
 
 export default function App() {
@@ -46,6 +65,26 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // A magic sign-in link wins over any stored session: the person just
+      // asked to sign in, possibly as someone else.
+      const magic = magicTokenFrom(await Linking.getInitialURL());
+      if (magic) {
+        try {
+          const result = await api.verifyLink(magic);
+          await saveToken(result.token);
+          // Strip the token from the address bar so a refresh or a shared URL
+          // can't replay it — and it is single-use anyway.
+          if (Platform.OS === "web" && typeof window !== "undefined") {
+            window.history.replaceState({}, "", window.location.pathname);
+          }
+          setState({ kind: "signed-in", user: result.user });
+          return;
+        } catch {
+          // A stale or spent link falls through to the normal flow rather than
+          // stranding the person on an error.
+        }
+      }
+
       const token = await loadToken();
       if (!token) {
         setState({ kind: "signed-out" });
@@ -71,7 +110,12 @@ export default function App() {
             <ActivityIndicator color={ink[500]} />
           </View>
         ) : state.kind === "signed-out" ? (
-          <SignIn onSignedIn={(user) => setState({ kind: "signed-in", user })} />
+          <SignIn
+            onSignedIn={(user) => setState({ kind: "signed-in", user })}
+            onScanQr={() => setState({ kind: "guest" })}
+          />
+        ) : state.kind === "guest" ? (
+          <GuestFlow onExit={() => setState({ kind: "signed-out" })} />
         ) : (
           <Home user={state.user} onSignedOut={() => setState({ kind: "signed-out" })} />
         )}
@@ -91,6 +135,8 @@ function Home({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   const [wizard, setWizard] = useState<LumaEvent | null | undefined>(undefined);
   const [showingQr, setShowingQr] = useState<LumaEvent | undefined>(undefined);
   const [detail, setDetail] = useState<LumaEvent | undefined>(undefined);
+  // The shared album, opened from the detail screen once an event is revealed.
+  const [album, setAlbum] = useState<LumaEvent | undefined>(undefined);
   const [shooting, setShooting] = useState<LumaEvent | undefined>(undefined);
   // Set once a camera session exists, so the photos screen can reuse it.
   const [photosToken, setPhotosToken] = useState<string | undefined>(undefined);
@@ -175,20 +221,31 @@ function Home({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
   if (shooting && token) {
     return (
       <CameraScreen
-        event={shooting}
+        joinCode={shooting.join_code}
         accountToken={token}
         displayName={user.display_name || user.email}
         onClose={() => {
           setShooting(undefined);
           void refresh();
         }}
-        onOpenPhotos={setPhotosToken}
+        onOpenPhotos={(cameraToken) => setPhotosToken(cameraToken)}
       />
     );
   }
 
   if (showingQr) {
     return <QrScreen event={showingQr} onClose={() => setShowingQr(undefined)} />;
+  }
+
+  if (album && token) {
+    return (
+      <AlbumScreen
+        token={token}
+        eventId={album.id}
+        title={album.title}
+        onClose={() => setAlbum(undefined)}
+      />
+    );
   }
 
   if (detail && token) {
@@ -201,6 +258,7 @@ function Home({ user, onSignedOut }: { user: User; onSignedOut: () => void }) {
         onClose={() => setDetail(undefined)}
         onChanged={() => void refresh()}
         onTakePhotos={() => setShooting(detail)}
+        onOpenAlbum={() => setAlbum(detail)}
       />
     );
   }

@@ -512,3 +512,79 @@ def test_another_host_cannot_reveal_your_event(client, host, other_host):
         headers=auth_headers(other_host),
     )
     assert response.status_code == 404
+
+
+# --- Album ------------------------------------------------------------------
+
+
+def _make_event_with_photos(host: User) -> Event:
+    """An event with photos from two guests, plus non-photograph slots that
+    the album must never surface."""
+    from apps.media.models import MediaAsset, ModerationStatus, ProcessingStatus
+    from apps.participants.models import Participant
+
+    event = Event.objects.create(host=host, title="Anna & Ben", timezone_name="Europe/Berlin")
+    anna = Participant.objects.create(
+        event=event, display_name="Anna", anonymous_session_id="a1", shot_limit=20
+    )
+    ben = Participant.objects.create(
+        event=event, display_name="Ben", anonymous_session_id="b1", shot_limit=20
+    )
+
+    MediaAsset.objects.create(
+        event=event, participant=anna, storage_key="a.jpg", processing_status=ProcessingStatus.READY
+    )
+    MediaAsset.objects.create(
+        event=event, participant=ben, storage_key="b.jpg", processing_status=ProcessingStatus.UPLOADED
+    )
+    # Must be excluded: a slot that never landed, and a removed photo.
+    MediaAsset.objects.create(
+        event=event, participant=anna, storage_key="c.jpg", processing_status=ProcessingStatus.RESERVED
+    )
+    MediaAsset.objects.create(
+        event=event,
+        participant=ben,
+        storage_key="d.jpg",
+        processing_status=ProcessingStatus.READY,
+        moderation_status=ModerationStatus.REMOVED,
+    )
+    return event
+
+
+@pytest.mark.django_db
+def test_album_is_refused_until_revealed(client, host):
+    """Reveal-gated: the album is the moment the host chose to share."""
+    event = _make_event_with_photos(host)
+    assert event.is_revealed is False
+
+    response = client.get(f"/api/events/{event.id}/album", headers=auth_headers(host))
+    assert response.status_code == 409
+
+
+@pytest.mark.django_db
+def test_album_returns_every_real_photo_once_revealed(client, host):
+    event = _make_event_with_photos(host)
+    event.reveal_withheld = False
+    event.revealed_at = timezone.now()
+    event.save(update_fields=["reveal_withheld", "revealed_at"])
+
+    response = client.get(f"/api/events/{event.id}/album", headers=auth_headers(host))
+    assert response.status_code == 200
+
+    photos = response.json()
+    # Two real photographs; the reserved slot and the removed photo are gone.
+    assert len(photos) == 2
+    # Attribution is carried, and every photo has a URL.
+    assert {p["photographer"] for p in photos} == {"Anna", "Ben"}
+    assert all(p["url"] for p in photos)
+
+
+@pytest.mark.django_db
+def test_album_is_scoped_to_the_owner(client, host, other_host):
+    event = _make_event_with_photos(host)
+    event.reveal_withheld = False
+    event.revealed_at = timezone.now()
+    event.save(update_fields=["reveal_withheld", "revealed_at"])
+
+    response = client.get(f"/api/events/{event.id}/album", headers=auth_headers(other_host))
+    assert response.status_code == 404

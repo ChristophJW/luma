@@ -100,6 +100,10 @@ export const api = {
   verifyCode: (email: string, code: string) =>
     post<VerifyResult>("/auth/verify-code", { email, code }),
 
+  // The magic-link counterpart: a token lifted from the sign-in URL, no email
+  // or code needed. Same result shape as verifyCode.
+  verifyLink: (token: string) => post<VerifyResult>("/auth/verify-link", { token }),
+
   logout: (token: string) => post<void>("/auth/logout", {}, token),
 
   me: async (token: string): Promise<User> => {
@@ -182,8 +186,19 @@ async function request<T>(
   return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
 }
 
+/** A photograph in the shared album, with attribution. */
+export interface AlbumPhoto {
+  id: string;
+  url: string;
+  created_at: string;
+  photographer: string;
+}
+
 export const events = {
   list: (token: string) => request<LumaEvent[]>("/events", { token }),
+
+  // The whole event's photos, once revealed. 409 until the host opens it.
+  album: (token: string, id: string) => request<AlbumPhoto[]>(`/events/${id}/album`, { token }),
 
   create: (token: string, draft: EventDraft) =>
     request<LumaEvent>("/events", {

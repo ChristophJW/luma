@@ -23,7 +23,8 @@ from ninja.errors import HttpError
 from pydantic import Field, model_validator
 
 from apps.accounts.api import session_auth
-from apps.media.models import ModerationStatus, ProcessingStatus
+from apps.media.models import MediaAsset, ModerationStatus, ProcessingStatus
+from apps.media.storage import endpoint_for_host, presign_get
 
 from .models import CaptureMode, Event, EventStatus, Theme, VisibilityMode
 
@@ -376,3 +377,72 @@ def reveal_event(request, event_id: str, payload: RevealIn) -> Event:
 
     event.save(update_fields=["reveal_withheld", "revealed_at", "status"])
     return event
+
+
+# --- Album -----------------------------------------------------------------
+
+
+class AlbumPhotoOut(Schema):
+    """One photograph in the shared album. Unlike a guest's own roll, this
+    carries attribution — an album of everyone's photos wants to say who took
+    each one."""
+
+    id: str
+    url: str
+    created_at: datetime
+    photographer: str
+
+
+def _public_endpoint(request):
+    """In dev, sign storage URLs for the host the client actually reached, so a
+    changing LAN IP never hands a phone an unreachable URL. Mirrors the guest
+    path; the configured endpoint is authoritative in production."""
+    return endpoint_for_host(request.get_host()) if settings.DEBUG else None
+
+
+@router.get("/{event_id}/album", response=list[AlbumPhotoOut], tags=["host"], auth=session_auth)
+def event_album(request, event_id: str):
+    """Every photograph in the event, once the album is open.
+
+    Reveal-gated: the album is the moment the host chose to share, so until
+    `reveal` has been switched on this refuses with 409 rather than returning
+    an empty grid that reads as broken. Ownership is enforced by _owned_event.
+    """
+    event = _owned_event(request, event_id)
+
+    if not event.is_revealed:
+        raise HttpError(409, "The album isn't open yet.")
+
+    endpoint = _public_endpoint(request)
+    photos = (
+        MediaAsset.objects.filter(event=event, processing_status__in=COUNTED_PROCESSING)
+        .exclude(moderation_status=ModerationStatus.REMOVED)
+        .select_related("participant")
+        .order_by("-created_at")
+    )
+
+    # When the event blurs children's faces, the album serves only the blurred
+    # derivative, and only for photos that actually have one. A photo still
+    # being processed simply isn't in the album yet — the original is never a
+    # fallback, so it can never leak.
+    if event.blur_child_faces:
+        photos = photos.exclude(blurred_storage_key="")
+
+    def url_for(photo: MediaAsset) -> str:
+        if event.blur_child_faces:
+            return presign_get(
+                photo.blurred_storage_key,
+                bucket=settings.S3_BUCKET_DERIVATIVES,
+                public_endpoint=endpoint,
+            )
+        return presign_get(photo.storage_key, public_endpoint=endpoint)
+
+    return [
+        AlbumPhotoOut(
+            id=str(photo.id),
+            url=url_for(photo),
+            created_at=photo.created_at,
+            photographer=photo.participant.display_name if photo.participant else "",
+        )
+        for photo in photos
+    ]

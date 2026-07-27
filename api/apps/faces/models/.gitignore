@@ -1,0 +1,4 @@
+# Model weights are fetched, not committed — see scripts/fetch-face-models.sh
+*.onnx
+*.caffemodel
+*.prototxt

@@ -93,6 +93,32 @@ def original_key(event_id, media_id, extension: str = "jpg") -> str:
     return f"events/{event_id}/originals/{media_id}.{extension}"
 
 
+def blurred_key(event_id, media_id, extension: str = "jpg") -> str:
+    """Where a child-face-blurred derivative lives, in the derivatives bucket.
+    Same event grouping as the originals, so deletion stays a prefix scan."""
+    return f"events/{event_id}/derivatives/{media_id}.{extension}"
+
+
+def get_bytes(key: str, bucket: str | None = None) -> bytes:
+    """Read an object's bytes server-side — used by the blur task to load an
+    original for processing. The server's own client, over whatever route it
+    has; never handed to a device."""
+    obj = client().get_object(Bucket=bucket or settings.S3_BUCKET_ORIGINALS, Key=key)
+    return obj["Body"].read()
+
+
+def put_bytes(key: str, data: bytes, content_type: str, *, bucket: str | None = None) -> None:
+    """Write bytes from the server — the one path photographs take *through*
+    Django rather than around it, because a derivative is produced here, not
+    uploaded by a client. Defaults to the derivatives bucket."""
+    client().put_object(
+        Bucket=bucket or settings.S3_BUCKET_DERIVATIVES,
+        Key=key,
+        Body=data,
+        ContentType=content_type,
+    )
+
+
 def presign_put(key: str, content_type: str, *, public_endpoint: str | None = None) -> str:
     """A URL the browser can PUT one object to.
 

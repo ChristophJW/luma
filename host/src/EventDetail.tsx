@@ -36,6 +36,7 @@ export function EventDetail({
   onClose,
   onChanged,
   onTakePhotos,
+  onOpenAlbum,
 }: {
   token: string;
   event: LumaEvent;
@@ -44,6 +45,7 @@ export function EventDetail({
   onClose: () => void;
   onChanged: () => void;
   onTakePhotos: () => void;
+  onOpenAlbum: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const { t, locale } = useI18n();
@@ -237,6 +239,12 @@ export function EventDetail({
             <Text style={styles.hint}>
               {t(event.is_revealed ? "detail.unrevealHint" : "detail.revealHint")}
             </Text>
+
+            {/* Once the album is open, the whole event's photos are here to
+                look at — the reason the host revealed it in the first place. */}
+            {event.is_revealed ? (
+              <Button label={t("album.open")} onPress={onOpenAlbum} />
+            ) : null}
           </>
         ) : null}
 

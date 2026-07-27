@@ -64,7 +64,7 @@ api: ## Run the Django dev server (0.0.0.0 so a phone on the LAN can reach it)
 	cd api && uv run python manage.py runserver 0.0.0.0:8000
 
 worker: ## Run the Celery worker
-	cd api && uv run celery -A config worker -l info -Q default
+	cd api && uv run celery -A config worker -l info -Q default,inference
 
 guest: ## Run the guest camera dev server
 	npm run dev --workspace guest
@@ -121,8 +121,8 @@ marketing: ## Serve the marketing landing page (static export) at :5174
 	# A self-contained page exported from Claude's design tool — it pulls React
 	# from a CDN and assembles itself, so a plain static server is all it needs.
 	# Not editable source; regenerate it in the design tool and re-export.
-	@echo "→ marketing  http://127.0.0.1:5174"
-	python3 -m http.server 5174 --directory marketing
+	@echo "→ marketing  http://127.0.0.1:5175"
+	python3 -m http.server 5175 --directory marketing
 
 migrate: ## Apply database migrations
 	cd api && uv run python manage.py migrate

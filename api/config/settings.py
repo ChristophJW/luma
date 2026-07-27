@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.notifications",
     "apps.participants",
     "apps.media",
+    "apps.faces",
 ]
 
 MIDDLEWARE = [
@@ -123,6 +124,21 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_TASK_ROUTES = {
     "apps.faces.tasks.*": {"queue": "inference"},
 }
+
+# --- Face blurring --------------------------------------------------------
+# Local, in-worker detection — children's photographs never leave our infra.
+# Detection cannot truly tell a child from an adult, so this is deliberately
+# fail-safe: a face is blurred if it is estimated to be a child OR the estimate
+# is uncertain. A missed child (shown unblurred) is the one outcome this
+# feature exists to prevent, so we err toward over-blurring.
+FACE_MODELS_DIR = os.getenv("FACE_MODELS_DIR", str(BASE_DIR / "apps" / "faces" / "models"))
+# Faces estimated at this age or below are blurred. The age model's buckets top
+# out per bracket; 17 keeps the whole "under 18" range in scope.
+FACE_MAX_CHILD_AGE = int(os.getenv("FACE_MAX_CHILD_AGE", "17"))
+# Below this detector confidence a region is treated as uncertain — and blurred.
+FACE_DETECT_CONFIDENCE = float(os.getenv("FACE_DETECT_CONFIDENCE", "0.6"))
+# Fail-safe: blur faces whose age estimate is low-confidence rather than skip.
+FACE_BLUR_ON_UNCERTAIN = env_bool("FACE_BLUR_ON_UNCERTAIN", True)
 
 # --- Object storage -------------------------------------------------------
 # Photographs never pass through Django. The browser PUTs directly to storage
@@ -190,6 +206,12 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # The base a join code is appended to, and what a QR code encodes. In
 # production this is the short join domain (CHECKLIST.md §4).
 GUEST_BASE_URL = os.getenv("GUEST_BASE_URL", "http://127.0.0.1:5173")
+
+# --- Host app -------------------------------------------------------------
+# Where the magic sign-in link points. The host app reads a `?magic=` token
+# from this URL and verifies it. In production this is the host web origin (or
+# a universal-link domain associated with the native app).
+HOST_BASE_URL = os.getenv("HOST_BASE_URL", "http://127.0.0.1:8081")
 
 # --- Feature flags --------------------------------------------------------
 
