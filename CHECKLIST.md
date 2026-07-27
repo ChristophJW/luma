@@ -445,6 +445,11 @@ licensed SDK in the **native host app only**, sold as a separate opt-in
 "photo booth" mode — never layered onto the disposable camera, so the guest
 bundle stays small and the album stays coherent.
 
+That version was planned out in July 2026 and the decision was postponed
+again, not taken — see [`docs/photo-booth.md`](docs/photo-booth.md). The plan
+is on the shelf with its own gate and its own kill criteria, so picking it up
+is a decision rather than a fresh argument. **Deferred remains the answer.**
+
 **Build this instead, and much sooner:**
 
 - [ ] Frames and borders — white film border, event date, couple's names, a
