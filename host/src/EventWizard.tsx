@@ -383,12 +383,10 @@ export function EventWizard({
                 value={draft.guest_downloads_enabled}
                 onChange={(value) => set("guest_downloads_enabled", value)}
               />
-              <Toggle
-                label={t("privacy.blurChildren")}
-                description={t("privacy.blurChildrenDescription")}
-                value={draft.blur_child_faces}
-                onChange={(value) => set("blur_child_faces", value)}
-              />
+              {/* The "blur children's faces" toggle is hidden for now while the
+                  blur model accuracy is worked out. The draft still sends
+                  blur_child_faces: false, and the set() handler above is kept,
+                  so restoring it is just re-adding this Toggle. */}
             </>
           )}
 
