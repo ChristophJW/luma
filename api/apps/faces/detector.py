@@ -33,6 +33,12 @@ logger = logging.getLogger(__name__)
 _AGE_BUCKET_UPPER = [2, 6, 12, 20, 32, 43, 53, 100]
 # The mean pixel values the Caffe age net was trained against.
 _AGE_MODEL_MEAN = (78.4263377603, 87.7689143744, 114.895847746)
+# The age net was trained on face crops that include surrounding context (hair,
+# jaw, some background). Fed a tight detector box it collapses everything to
+# "toddler" — verified: an adult scored (0-2) p=1.0 tight, (25-32) p=1.0 with
+# margin. So the age crop is padded by this fraction on each side; the blur
+# still lands on the tight box, only the age estimate sees the context.
+_AGE_CONTEXT_MARGIN = 0.4
 
 
 class FaceModelsMissing(RuntimeError):
@@ -124,7 +130,12 @@ def detect_and_blur(image_bytes: bytes) -> tuple[bytes, dict]:
         if x1 <= x0 or y1 <= y0:
             continue
 
-        estimate = _estimate_age_upper(img[y0:y1, x0:x1])
+        # Age needs context around the face; blurring does not. Expand the crop
+        # for the estimate only, clamped to the image.
+        mx, my = int((x1 - x0) * _AGE_CONTEXT_MARGIN), int((y1 - y0) * _AGE_CONTEXT_MARGIN)
+        age_crop = img[max(0, y0 - my) : min(height, y1 + my), max(0, x0 - mx) : min(width, x1 + mx)]
+
+        estimate = _estimate_age_upper(age_crop)
         if estimate is None:
             should_blur = fail_safe
         else:

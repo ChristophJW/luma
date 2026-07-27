@@ -135,8 +135,10 @@ FACE_MODELS_DIR = os.getenv("FACE_MODELS_DIR", str(BASE_DIR / "apps" / "faces" /
 # Faces estimated at this age or below are blurred. The age model's buckets top
 # out per bracket; 17 keeps the whole "under 18" range in scope.
 FACE_MAX_CHILD_AGE = int(os.getenv("FACE_MAX_CHILD_AGE", "17"))
-# Below this detector confidence a region is treated as uncertain — and blurred.
-FACE_DETECT_CONFIDENCE = float(os.getenv("FACE_DETECT_CONFIDENCE", "0.6"))
+# YuNet detection score threshold. 0.9 (its portrait default) misses the
+# smaller faces in a group photo; 0.6 invents phantom faces that then get
+# blurred. 0.7 is the balance for party/group shots.
+FACE_DETECT_CONFIDENCE = float(os.getenv("FACE_DETECT_CONFIDENCE", "0.7"))
 # Fail-safe: blur faces whose age estimate is low-confidence rather than skip.
 FACE_BLUR_ON_UNCERTAIN = env_bool("FACE_BLUR_ON_UNCERTAIN", True)
 
